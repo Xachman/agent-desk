@@ -4,6 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Str;
 
 class BaseModel extends Model
 {
@@ -12,6 +17,40 @@ class BaseModel extends Model
     protected $keyType = 'string';
     public $incrementing = false;
     protected $primaryKey = 'id';
+    
+    /**
+     * Generate a UUID for the model.
+     */
+    protected static function generateUuid(): string
+    {
+        return Str::uuid()->toString();
+    }
+    
+    /**
+     * Get a new model instance without casting.
+     */
+    public static function newModelInstance(array $attributes = [])
+    {
+        $instance = new static($attributes);
+        $instance->exists = false;
+        
+        return $instance;
+    }
+    
+    /**
+     * Boot the model.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+        
+        static::creating(function ($model) {
+            if (!$model->{$model->getKeyName()}) {
+                $model->{$model->getKeyName()} = self::generateUuid();
+            }
+        });
+    }
+    
     protected $casts = [
         'agent_config' => 'array',
         'env_variables' => 'array',
@@ -23,4 +62,17 @@ class BaseModel extends Model
         'context' => 'array',
         'config_snapshot' => 'array',
     ];
+    
+    /**
+     * Get the casts that should be used for relationships.
+     */
+    protected function casts(): array
+    {
+        return [
+            'created_at' => 'datetime',
+            'updated_at' => 'datetime',
+            'started_at' => 'datetime',
+            'completed_at' => 'datetime',
+        ];
+    }
 }

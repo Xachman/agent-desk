@@ -25,9 +25,4 @@ class AgentTemplate extends BaseModel
     {
         return $this->hasMany(Agent::class);
     }
-
-    public function executions(): HasMany
-    {
-        return $this->hasManyThrough(AgentExecution::class, Agent::class);
-    }
 }

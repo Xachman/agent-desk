@@ -3,13 +3,23 @@
 namespace App\Http\Controllers;
 
 use App\Models\Agent;
+use App\Models\AgentExecution;
+use App\Services\AgentOrchestrator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class AgentController extends Controller
 {
+    protected AgentOrchestrator $orchestrator;
+    
+    public function __construct(AgentOrchestrator $orchestrator)
+    {
+        $this->orchestrator = $orchestrator;
+    }
+
     public function index(Request $request): JsonResponse
     {
         $query = Agent::query();
@@ -117,25 +127,32 @@ class AgentController extends Controller
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        $execution = AgentExecution::create([
-            'agent_id' => $id,
-            'user_id' => $request->user()->id,
-            'input' => $request->input ?? [],
-            'context' => $request->context ?? [],
-            'status' => 'pending',
-            'progress' => 0,
-            'config_snapshot' => $agent->agent_config,
+        $validated = $request->validate([
+            'input' => 'required|array',
+            'context' => 'nullable|array',
         ]);
 
-        Log::info('Agent execution started', [
-            'execution_id' => $execution->id,
-            'agent_id' => $id,
-            'user_id' => $request->user()->id,
-        ]);
+        $input = $validated['input'] ?? [];
+        $context = $validated['context'] ?? null;
 
-        return response()->json([
-            'message' => 'Execution started',
-            'execution' => $execution,
-        ], Response::HTTP_ACCEPTED);
+        try {
+            $execution = $this->orchestrator->executeAgent($id, $input, $context);
+
+            return response()->json([
+                'message' => 'Execution started',
+                'execution' => $execution,
+            ], Response::HTTP_ACCEPTED);
+
+        } catch (\Exception $e) {
+            Log::error('Agent execution failed', [
+                'agent_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to start execution',
+                'message' => $e->getMessage(),
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 }

@@ -14,9 +14,9 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->longText('system_prompt');
             $table->longText('user_context')->nullable();
-            $table->json('config_defaults');
-            $table->json('env_defaults');
-            $table->json('tool_definitions');
+            $table->json('config_defaults')->nullable();
+            $table->json('env_defaults')->nullable();
+            $table->json('tool_definitions')->nullable();
             $table->timestamps();
 
             $table->index('name');
