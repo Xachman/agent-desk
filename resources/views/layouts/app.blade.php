@@ -11,8 +11,10 @@
             font-family: 'Inter', sans-serif;
         }
     </style>
+    @livewireStyles
 </head>
 <body class="bg-gray-50">
-    @yield('content')
+    {{ $slot }}
+    @livewireScripts
 </body>
 </html>

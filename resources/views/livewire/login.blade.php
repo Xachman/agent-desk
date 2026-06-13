@@ -1,6 +1,3 @@
-@extends('layouts.app')
-
-@section('content')
 <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
     <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
         <div class="text-center mb-8">
@@ -22,7 +19,13 @@
             </div>
         @endif
 
-        <form wire:submit="login">
+        @if($errorMessage)
+            <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                {{ $errorMessage }}
+            </div>
+        @endif
+
+        <form wire:submit.prevent="login">
             <div class="mb-4">
                 <label class="block text-gray-700 text-sm font-bold mb-2" for="username">
                     Username / Email
@@ -79,4 +82,3 @@
         @endif
     </div>
 </div>
-@endsection
