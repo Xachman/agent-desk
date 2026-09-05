@@ -49,8 +49,8 @@ class AgentTemplateController extends Controller
                 'description' => 'Template description',
                 'system_prompt' => 'AGENT.md content',
                 'user_context' => 'USER.md content',
-                'config_defaults' => 'Default configuration',
-                'env_defaults' => 'Default environment variables',
+                'config' => 'Default configuration',
+                'env' => 'Default environment variables',
                 'tool_definitions' => 'Available tools',
             ],
         ]);
@@ -63,8 +63,8 @@ class AgentTemplateController extends Controller
             'description' => 'nullable|string',
             'system_prompt' => 'required|string',
             'user_context' => 'nullable|string',
-            'config_defaults' => 'nullable|array',
-            'env_defaults' => 'nullable|array',
+            'config' => 'nullable|array',
+            'env' => 'nullable|array',
             'tool_definitions' => 'nullable|array',
         ]);
 
@@ -73,8 +73,8 @@ class AgentTemplateController extends Controller
             'description' => $validated['description'] ?? null,
             'system_prompt' => $validated['system_prompt'],
             'user_context' => $validated['user_context'] ?? null,
-            'config_defaults' => $validated['config_defaults'] ?? [],
-            'env_defaults' => $validated['env_defaults'] ?? [],
+            'config' => $validated['config'] ?? [],
+            'env' => $validated['env'] ?? [],
             'tool_definitions' => $validated['tool_definitions'] ?? [],
         ]);
 
@@ -97,8 +97,8 @@ class AgentTemplateController extends Controller
             'description' => 'nullable|string',
             'system_prompt' => 'required|string',
             'user_context' => 'nullable|string',
-            'config_defaults' => 'nullable|array',
-            'env_defaults' => 'nullable|array',
+            'config' => 'nullable|array',
+            'env' => 'nullable|array',
             'tool_definitions' => 'nullable|array',
         ]);
 
@@ -147,8 +147,8 @@ class AgentTemplateController extends Controller
                 'description' => $content['description'] ?? null,
                 'system_prompt' => $content['system_prompt'] ?? '',
                 'user_context' => $content['user_context'] ?? null,
-                'config_defaults' => $content['config_defaults'] ?? [],
-                'env_defaults' => $content['env_defaults'] ?? [],
+                'config' => $content['config'] ?? $content['config_defaults'] ?? [],
+                'env' => $content['env'] ?? $content['env_defaults'] ?? [],
                 'tool_definitions' => $content['tool_definitions'] ?? [],
             ]);
 
@@ -173,8 +173,8 @@ class AgentTemplateController extends Controller
                 'description' => $template->description,
                 'system_prompt' => $template->system_prompt,
                 'user_context' => $template->user_context,
-                'config_defaults' => $template->config_defaults,
-                'env_defaults' => $template->env_defaults,
+                'config' => $template->config,
+                'env' => $template->env,
                 'tool_definitions' => $template->tool_definitions,
             ];
 

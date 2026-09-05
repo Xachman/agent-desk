@@ -33,7 +33,7 @@ class Login extends Component
                 return redirect()->route('admin');
             }
 
-            return redirect()->intended();
+            return redirect()->route('dashboard');
         }
 
         $this->errorMessage = 'Invalid username or password.';

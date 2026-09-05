@@ -17,16 +17,17 @@
             </div>
 
             <div class="pt-4">
-                <a href="{{ route('logout') }}" wire:click="logout" class="w-full bg-red-500 text-white font-bold py-2 px-4 rounded hover:bg-red-600 transition-colors">
+                <button type="button" wire:click="logout" class="w-full bg-red-500 text-white font-bold py-2 px-4 rounded hover:bg-red-600 transition-colors">
                     Logout
-                </a>
+                </button>
             </div>
         </div>
 
         @if(auth()->user()->role === 'admin')
             <div class="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500">
                 <h3 class="font-semibold text-blue-800">Admin Features Available:</h3>
-                <ul class="list-disc list-inside mt-2 text-blue-700">
+                <ul class="list-disc list-inside mt-2 text-blue-700 space-y-1">
+                    <li><a href="{{ route('agent-deployments.index') }}" class="underline hover:text-blue-900">Manage Kubernetes Agent Deployments</a></li>
                     <li>User Management</li>
                     <li>Content Management</li>
                     <li>Analytics Dashboard</li>

@@ -63,6 +63,7 @@ class AgentOrchestrator
 
             $podConfig = $this->createPodConfiguration($execution, $agentFiles, $pvcName);
 
+            $agent = $execution->agent;
             $pod = $this->kubernetesService->createAgentPod($execution->id, $agent);
 
             $execution->update([

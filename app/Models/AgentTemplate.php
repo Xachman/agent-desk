@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'name', 'description', 'system_prompt', 'user_context',
-    'config_defaults', 'env_defaults', 'tool_definitions'
+    'config', 'env', 'tool_definitions'
 ])]
 class AgentTemplate extends BaseModel
 {

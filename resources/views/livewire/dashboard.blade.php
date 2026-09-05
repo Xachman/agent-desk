@@ -16,9 +16,12 @@
                 </div>
 
                 <div class="pt-4">
-                    <a href="{{ route('logout') }}" class="w-full bg-red-500 text-white font-bold py-2 px-4 rounded hover:bg-red-600 transition-colors">
-                        Logout
-                    </a>
+                    <form method="POST" action="{{ route('logout') }}" class="w-full">
+                        @csrf
+                        <button type="submit" class="w-full bg-red-500 text-white font-bold py-2 px-4 rounded hover:bg-red-600 transition-colors">
+                            Logout
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

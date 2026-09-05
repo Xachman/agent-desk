@@ -22,12 +22,12 @@ class AgentTemplateFactory extends Factory
             'description' => fake()->paragraph(),
             'system_prompt' => fake()->text(1000),
             'user_context' => fake()->text(500),
-            'config_defaults' => [
+            'config' => [
                 'model' => 'gpt-4',
                 'temperature' => 0.7,
                 'max_tokens' => 2000,
             ],
-            'env_defaults' => [
+            'env' => [
                 'OPENAI_API_KEY' => 'sk-test',
             ],
             'tool_definitions' => [

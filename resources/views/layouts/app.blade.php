@@ -14,7 +14,11 @@
     @livewireStyles
 </head>
 <body class="bg-gray-50">
-    {{ $slot }}
+    @hasSection('content')
+        @yield('content')
+    @else
+        {{ $slot ?? '' }}
+    @endif
     @livewireScripts
 </body>
 </html>
