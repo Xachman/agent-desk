@@ -31,7 +31,8 @@ class KubernetesService
     {
         $cmd = ['kubectl'];
 
-        $kubeconfig = $this->kubeconfig ?: getenv('HOME') . '/.kube/config';
+        $home = $this->kubectlHome();
+        $kubeconfig = $this->prepareKubeconfig($home);
 
         $cmd[] = '--kubeconfig=' . $kubeconfig;
 
@@ -43,8 +44,9 @@ class KubernetesService
         $cmd = array_merge($cmd, $args);
 
         $env = [
-            'HOME' => getenv('HOME') ?: '/home/ubuntu',
+            'HOME' => $home,
             'KUBECONFIG' => $kubeconfig,
+            'KUBECACHEDIR' => $home . '/.kube/cache',
         ];
 
         $process = new Process($cmd, base_path(), $env, $input, $timeout);
@@ -70,6 +72,20 @@ class KubernetesService
             'error' => $error,
             'exit_code' => $exitCode,
         ];
+    }
+
+    /**
+     * Get a dedicated home directory for kubectl outside the web root.
+     */
+    protected function kubectlHome(): string
+    {
+        $home = storage_path('app/kubectl-home');
+
+        if (!is_dir($home)) {
+            mkdir($home, 0700, true);
+        }
+
+        return $home;
     }
 
     /**
@@ -267,5 +283,40 @@ class KubernetesService
             ],
             'status' => ['phase' => 'Pending'],
         ];
+    }
+
+    /**
+     * Ensure the kubeconfig file is available in the kubectl home directory.
+     */
+    protected function prepareKubeconfig(string $home): string
+    {
+        $kubeDir = $home . '/.kube';
+        $targetConfig = $kubeDir . '/config';
+
+        if (!is_dir($kubeDir)) {
+            mkdir($kubeDir, 0700, true);
+        }
+
+        if ($this->kubeconfig && file_exists($this->kubeconfig)) {
+            if (!file_exists($targetConfig) || md5_file($this->kubeconfig) !== md5_file($targetConfig)) {
+                copy($this->kubeconfig, $targetConfig);
+                chmod($targetConfig, 0600);
+            }
+
+            return $targetConfig;
+        }
+
+        $defaultConfig = (getenv('HOME') ?: '/home/ubuntu') . '/.kube/config';
+
+        if (file_exists($defaultConfig)) {
+            if (!file_exists($targetConfig) || md5_file($defaultConfig) !== md5_file($targetConfig)) {
+                copy($defaultConfig, $targetConfig);
+                chmod($targetConfig, 0600);
+            }
+
+            return $targetConfig;
+        }
+
+        return $targetConfig;
     }
 }
