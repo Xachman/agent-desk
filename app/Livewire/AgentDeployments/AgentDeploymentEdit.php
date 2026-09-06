@@ -137,6 +137,7 @@ class AgentDeploymentEdit extends Component
 
     public function render()
     {
-        return view('livewire.agent-deployments.edit');
+        return view('livewire.agent-deployments.edit')
+            ->layout('layouts.adminlte', ['title' => 'Edit Deployment']);
     }
 }

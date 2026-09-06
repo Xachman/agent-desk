@@ -32,6 +32,7 @@ class AgentDeploymentShow extends Component
 
     public function render()
     {
-        return view('livewire.agent-deployments.show');
+        return view('livewire.agent-deployments.show')
+            ->layout('layouts.adminlte', ['title' => $this->deployment->name]);
     }
 }

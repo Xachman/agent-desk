@@ -132,6 +132,7 @@ class AgentDeploymentCreate extends Component
 
     public function render()
     {
-        return view('livewire.agent-deployments.create');
+        return view('livewire.agent-deployments.create')
+            ->layout('layouts.adminlte', ['title' => 'Create Deployment']);
     }
 }

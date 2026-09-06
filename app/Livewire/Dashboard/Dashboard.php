@@ -209,6 +209,6 @@ class Dashboard extends Component
             'agents' => $agents,
             'executions' => $executions,
             'templates' => $templates,
-        ]);
+        ])->layout('layouts.adminlte', ['title' => 'Dashboard']);
     }
 }

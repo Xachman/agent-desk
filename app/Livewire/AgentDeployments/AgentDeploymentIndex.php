@@ -62,6 +62,6 @@ class AgentDeploymentIndex extends Component
 
         return view('livewire.agent-deployments.index', [
             'deployments' => $query->paginate(10),
-        ]);
+        ])->layout('layouts.adminlte', ['title' => 'Agent Deployments']);
     }
 }

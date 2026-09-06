@@ -23,6 +23,15 @@ class AgentTemplate extends BaseModel
 
     public function agents(): HasMany
     {
-        return $this->hasMany(Agent::class);
+        return $this->hasMany(Agent::class, 'template_id');
+    }
+
+    protected function casts(): array
+    {
+        return array_merge(parent::casts(), [
+            'config' => 'array',
+            'env' => 'array',
+            'tool_definitions' => 'array',
+        ]);
     }
 }
