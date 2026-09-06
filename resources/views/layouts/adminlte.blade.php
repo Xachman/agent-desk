@@ -16,7 +16,7 @@
 <body class="bg-gray-100 text-sm">
     <div class="min-h-screen flex">
         <!-- Sidebar -->
-        <aside class="w-64 bg-slate-800 text-white flex flex-col fixed h-full z-20">
+        <aside id="sidebar" class="w-64 bg-slate-800 text-white flex flex-col fixed h-full z-20 transform -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out">
             <div class="h-16 flex items-center px-6 bg-slate-900 border-b border-slate-700">
                 <div class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
                     <i class="fas fa-robot text-white"></i>
@@ -58,11 +58,13 @@
         </aside>
 
         <!-- Main wrapper -->
-        <div class="flex-1 flex flex-col ml-64">
+        <div id="main-wrapper" class="flex-1 flex flex-col md:ml-64 transition-all duration-200 ease-in-out">
             <!-- Top navbar -->
             <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 sticky top-0 z-10">
                 <div class="flex items-center text-gray-500">
-                    <i class="fas fa-bars mr-4 cursor-pointer hover:text-gray-700"></i>
+                    <button id="sidebar-toggle" type="button" class="mr-4 text-gray-500 hover:text-gray-700 focus:outline-none md:hidden" aria-label="Toggle sidebar">
+                        <i class="fas fa-bars"></i>
+                    </button>
                     <nav class="text-sm">
                         @if(isset($breadcrumb))
                             {{ $breadcrumb }}
@@ -125,5 +127,69 @@
     </div>
 
     @livewireScripts
+
+    <script>
+        (function () {
+            const sidebar = document.getElementById('sidebar');
+            const mainWrapper = document.getElementById('main-wrapper');
+            const toggle = document.getElementById('sidebar-toggle');
+
+            if (!sidebar || !toggle) return;
+
+            let open = false;
+
+            function update() {
+                if (open) {
+                    sidebar.classList.remove('-translate-x-full');
+                    if (window.innerWidth < 768) {
+                        document.body.classList.add('overflow-hidden');
+                    }
+                } else {
+                    sidebar.classList.add('-translate-x-full');
+                    document.body.classList.remove('overflow-hidden');
+                }
+            }
+
+            toggle.addEventListener('click', function () {
+                open = !open;
+                update();
+            });
+
+            // Close sidebar when clicking a link on mobile
+            sidebar.querySelectorAll('a').forEach(function (link) {
+                link.addEventListener('click', function () {
+                    if (window.innerWidth < 768) {
+                        open = false;
+                        update();
+                    }
+                });
+            });
+
+            // Close sidebar when clicking outside on mobile
+            document.addEventListener('click', function (event) {
+                if (window.innerWidth >= 768) return;
+                if (!open) return;
+                if (sidebar.contains(event.target) || toggle.contains(event.target)) return;
+
+                open = false;
+                update();
+            });
+
+            window.addEventListener('resize', function () {
+                if (window.innerWidth >= 768) {
+                    open = true;
+                } else {
+                    open = false;
+                }
+                update();
+            });
+
+            // Initial state
+            if (window.innerWidth >= 768) {
+                open = true;
+                update();
+            }
+        })();
+    </script>
 </body>
 </html>
