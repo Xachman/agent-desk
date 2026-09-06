@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\HasGroupRole;
 use Database\Factories\AgentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,12 +11,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
-    'user_id', 'template_id', 'name', 'description',
+    'user_id', 'group_id', 'template_id', 'name', 'description',
     'agent_config', 'env_variables', 'config_template', 'is_active'
 ])]
 class Agent extends BaseModel
 {
     use HasFactory;
+    use HasGroupRole;
 
     /** @use HasFactory<AgentFactory> */
     protected static function newFactory(): AgentFactory
@@ -26,6 +28,11 @@ class Agent extends BaseModel
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(Group::class);
     }
 
     public function template(): BelongsTo

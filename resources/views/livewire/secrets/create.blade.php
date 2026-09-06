@@ -1,7 +1,14 @@
 <div>
     <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-plus mr-2"></i>Create Secret</h1>
-        <a href="{{ route('secrets.index') }}" class="text-gray-600 hover:text-gray-900"><i class="fas fa-arrow-left mr-1"></i>Back</a>
+        <h1 class="text-2xl font-bold text-gray-800">
+            <i class="fas fa-plus mr-2"></i>
+            @if($group)
+                Create Secret: {{ $group->name }}
+            @else
+                Create Secret
+            @endif
+        </h1>
+        <a href="{{ $group ? route('groups.show', ['group' => $group->id, 'tab' => 'secrets']) : route('secrets.index') }}" class="text-gray-600 hover:text-gray-900"><i class="fas fa-arrow-left mr-1"></i>Back</a>
     </div>
 
     <div class="bg-white rounded-lg shadow">
@@ -48,7 +55,7 @@
             </div>
 
             <div class="flex justify-end gap-3 pt-6 border-t border-gray-200">
-                <a href="{{ route('secrets.index') }}" class="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50">Cancel</a>
+                <a href="{{ $group ? route('groups.show', ['group' => $group->id, 'tab' => 'secrets']) : route('secrets.index') }}" class="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50">Cancel</a>
                 <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"><i class="fas fa-save mr-2"></i>Create Secret</button>
             </div>
         </form>

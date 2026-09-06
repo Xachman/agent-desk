@@ -3,11 +3,15 @@
 namespace App\Livewire\Templates;
 
 use App\Models\AgentTemplate;
+use App\Models\Group;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 
 class TemplateEdit extends Component
 {
     public AgentTemplate $template;
+    public ?string $groupId = null;
+
     public string $name = '';
     public string $description = '';
     public string $systemPrompt = '';
@@ -19,6 +23,28 @@ class TemplateEdit extends Component
     public function mount(AgentTemplate $template): void
     {
         $this->template = $template;
+        $this->groupId = request()->query('group') ?: $template->group_id;
+
+        if ($this->groupId) {
+            $group = Group::find($this->groupId);
+
+            if (!$group || !Gate::allows('member-group', $group)) {
+                abort(403);
+            }
+        }
+
+        if (! Gate::allows('update-template', $template)) {
+            abort(403);
+        }
+
+        if ($this->groupId) {
+            $group = Group::find($this->groupId);
+
+            if (!$group || !Gate::allows('member-group', $group)) {
+                abort(403);
+            }
+        }
+
         $this->name = $template->name;
         $this->description = $template->description ?? '';
         $this->systemPrompt = $template->system_prompt;
@@ -30,6 +56,10 @@ class TemplateEdit extends Component
 
     public function update(): void
     {
+        if (! Gate::allows('update-template', $this->template)) {
+            abort(403);
+        }
+
         $validated = $this->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -41,6 +71,7 @@ class TemplateEdit extends Component
         ]);
 
         $this->template->update([
+            'group_id' => $this->groupId ?: $this->template->group_id,
             'name' => $validated['name'],
             'description' => $validated['description'] ?: null,
             'system_prompt' => $validated['systemPrompt'],
@@ -51,7 +82,10 @@ class TemplateEdit extends Component
         ]);
 
         session()->flash('message', 'Template updated successfully.');
-        $this->redirectRoute('agent-templates.index');
+
+        $this->redirect($this->groupId
+            ? route('groups.show', ['group' => $this->groupId, 'tab' => 'templates'])
+            : route('agent-templates.index'));
     }
 
     protected function safeJsonDecode(?string $json): ?array
@@ -67,6 +101,12 @@ class TemplateEdit extends Component
 
     public function render()
     {
-        return view('livewire.templates.edit')->layout('layouts.adminlte', ['title' => 'Edit Template']);
+        $group = $this->groupId ? Group::find($this->groupId) : null;
+        $canAdmin = $this->template->canAdmin(auth()->user());
+
+        return view('livewire.templates.edit', [
+            'group' => $group,
+            'canAdmin' => $canAdmin,
+        ])->layout('layouts.adminlte', ['title' => $group ? "Edit Template: {$group->name}" : 'Edit Template']);
     }
 }

@@ -1,9 +1,18 @@
 <div>
     <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-key mr-2"></i>Kubernetes Secrets</h1>
-        <a href="{{ route('secrets.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-            <i class="fas fa-plus mr-2"></i>New Secret
-        </a>
+        <h1 class="text-2xl font-bold text-gray-800">
+            <i class="fas fa-key mr-2"></i>
+            @if($group)
+                {{ $group->name }} Secrets
+            @else
+                Kubernetes Secrets
+            @endif
+        </h1>
+        @if($canCreate)
+            <a href="{{ $group ? route('secrets.create', ['group' => $group->id]) : route('secrets.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                <i class="fas fa-plus mr-2"></i>New Secret
+            </a>
+        @endif
     </div>
 
     <div class="bg-white rounded-lg shadow">
@@ -51,12 +60,14 @@
                             </td>
                             <td class="px-6 py-4 text-right text-sm font-medium">
                                 <div class="flex justify-end gap-3">
-                                    <a href="{{ route('secrets.edit', $secret->id) }}" class="text-indigo-600 hover:text-indigo-900" title="Edit">
-                                        <i class="fas fa-edit"></i>
+                                    <a href="{{ $group ? route('secrets.edit', ['secret' => $secret->id, 'group' => $group->id]) : route('secrets.edit', $secret->id) }}" class="text-indigo-600 hover:text-indigo-900" title="{{ $secret->canAdmin(auth()->user()) ? 'Edit' : 'View' }}">
+                                        <i class="fas {{ $secret->canAdmin(auth()->user()) ? 'fa-edit' : 'fa-eye' }}"></i>
                                     </a>
-                                    <button wire:click="delete('{{ $secret->id }}')" wire:confirm="Delete this secret?" class="text-red-600 hover:text-red-900" title="Delete">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                    @if($secret->canAdmin(auth()->user()))
+                                        <button wire:click="delete('{{ $secret->id }}')" wire:confirm="Delete this secret?" class="text-red-600 hover:text-red-900" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    @endif
                                 </div>
                             </td>
                         </tr>

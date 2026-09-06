@@ -56,7 +56,12 @@
             <nav class="-mb-px flex gap-6">
                 <button wire:click="setTab('agents')" class="py-4 px-1 border-b-2 font-medium text-sm
                     {{ $activeTab === 'agents' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
-                    <i class="fas fa-robot mr-2"></i>My Agents
+                    <i class="fas fa-robot mr-2"></i>
+                    @if($group)
+                        Group Agents
+                    @else
+                        My Agents
+                    @endif
                 </button>
                 <button wire:click="setTab('executions')" class="py-4 px-1 border-b-2 font-medium text-sm
                     {{ $activeTab === 'executions' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
@@ -68,10 +73,18 @@
         <div class="p-6">
             @if($activeTab === 'agents')
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-lg font-semibold text-gray-800">My Agents</h2>
-                    <button wire:click="createAgent" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                        <i class="fas fa-plus mr-2"></i>Create Agent
-                    </button>
+                    <h2 class="text-lg font-semibold text-gray-800">
+                        @if($group)
+                            {{ $group->name }} Agents
+                        @else
+                            My Agents
+                        @endif
+                    </h2>
+                    @if($canCreate)
+                        <button wire:click="createAgent" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                            <i class="fas fa-plus mr-2"></i>Create Agent
+                        </button>
+                    @endif
                 </div>
 
                 @if($showAgentForm)
@@ -148,12 +161,14 @@
                                                     <i class="fas fa-server"></i>
                                                 </a>
                                             @endif
-                                            <button wire:click="editAgent('{{ $agent->id }}')" class="text-indigo-600 hover:text-indigo-900" title="Edit">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button wire:click="deleteAgent('{{ $agent->id }}')" wire:confirm="Delete this agent?" class="text-red-600 hover:text-red-900" title="Delete">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
+                                            @if($agent->canAdmin(auth()->user()))
+                                                <button wire:click="editAgent('{{ $agent->id }}')" class="text-indigo-600 hover:text-indigo-900" title="Edit">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button wire:click="deleteAgent('{{ $agent->id }}')" wire:confirm="Delete this agent?" class="text-red-600 hover:text-red-900" title="Delete">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>

@@ -3,10 +3,14 @@
 namespace App\Livewire\Templates;
 
 use App\Models\AgentTemplate;
+use App\Models\Group;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 
 class TemplateCreate extends Component
 {
+    public ?string $groupId = null;
+
     public string $name = '';
     public string $description = '';
     public string $systemPrompt = '';
@@ -14,6 +18,19 @@ class TemplateCreate extends Component
     public string $configJson = '{}';
     public string $envJson = '{}';
     public string $toolDefinitionsJson = '[]';
+
+    public function mount(): void
+    {
+        $this->groupId = request()->query('group');
+
+        if ($this->groupId) {
+            $group = Group::find($this->groupId);
+
+            if (!$group || !Gate::allows('admin-group', $group)) {
+                abort(403);
+            }
+        }
+    }
 
     public function store(): void
     {
@@ -27,7 +44,9 @@ class TemplateCreate extends Component
             'toolDefinitionsJson' => 'nullable|string',
         ]);
 
-        AgentTemplate::create([
+        $template = AgentTemplate::create([
+            'group_id' => $this->groupId,
+            'user_id' => auth()->id(),
             'name' => $validated['name'],
             'description' => $validated['description'] ?: null,
             'system_prompt' => $validated['systemPrompt'],
@@ -38,7 +57,10 @@ class TemplateCreate extends Component
         ]);
 
         session()->flash('message', 'Template created successfully.');
-        $this->redirectRoute('agent-templates.index');
+
+        $this->redirect($this->groupId
+            ? route('groups.show', ['group' => $this->groupId, 'tab' => 'templates'])
+            : route('agent-templates.index'));
     }
 
     protected function safeJsonDecode(?string $json): ?array
@@ -54,6 +76,10 @@ class TemplateCreate extends Component
 
     public function render()
     {
-        return view('livewire.templates.create')->layout('layouts.adminlte', ['title' => 'Create Template']);
+        $group = $this->groupId ? Group::find($this->groupId) : null;
+
+        return view('livewire.templates.create', [
+            'group' => $group,
+        ])->layout('layouts.adminlte', ['title' => $group ? "Create Template: {$group->name}" : 'Create Template']);
     }
 }

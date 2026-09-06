@@ -17,6 +17,10 @@ Route::post('/logout', function () {
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', \App\Livewire\Dashboard\Dashboard::class)->name('dashboard');
 
+    Route::get('/groups', \App\Livewire\Groups\GroupIndex::class)->name('groups.index');
+    Route::get('/groups/create', \App\Livewire\Groups\GroupCreate::class)->name('groups.create');
+    Route::get('/groups/{group}', \App\Livewire\Groups\GroupShow::class)->name('groups.show');
+
     Route::get('/templates', \App\Livewire\Templates\TemplateIndex::class)->name('agent-templates.index');
     Route::get('/templates/create', \App\Livewire\Templates\TemplateCreate::class)->name('agent-templates.create');
     Route::get('/templates/{template}/edit', \App\Livewire\Templates\TemplateEdit::class)->name('agent-templates.edit');

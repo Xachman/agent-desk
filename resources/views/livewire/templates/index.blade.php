@@ -1,9 +1,18 @@
 <div>
     <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-layer-group mr-2"></i>Templates</h1>
-        <a href="{{ route('agent-templates.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-            <i class="fas fa-plus mr-2"></i>New Template
-        </a>
+        <h1 class="text-2xl font-bold text-gray-800">
+            <i class="fas fa-layer-group mr-2"></i>
+            @if($group)
+                {{ $group->name }} Templates
+            @else
+                Templates
+            @endif
+        </h1>
+        @if($canCreate)
+            <a href="{{ $group ? route('agent-templates.create', ['group' => $group->id]) : route('agent-templates.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                <i class="fas fa-plus mr-2"></i>New Template
+            </a>
+        @endif
     </div>
 
     <div class="bg-white rounded-lg shadow">
@@ -35,12 +44,14 @@
                             <td class="px-6 py-4 text-sm text-gray-500">{{ $template->created_at->diffForHumans() }}</td>
                             <td class="px-6 py-4 text-right text-sm font-medium">
                                 <div class="flex justify-end gap-3">
-                                    <a href="{{ route('agent-templates.edit', $template->id) }}" class="text-indigo-600 hover:text-indigo-900" title="Edit">
-                                        <i class="fas fa-edit"></i>
+                                    <a href="{{ $group ? route('agent-templates.edit', ['template' => $template->id, 'group' => $group->id]) : route('agent-templates.edit', $template->id) }}" class="text-indigo-600 hover:text-indigo-900" title="{{ $template->canAdmin(auth()->user()) ? 'Edit' : 'View' }}">
+                                        <i class="fas {{ $template->canAdmin(auth()->user()) ? 'fa-edit' : 'fa-eye' }}"></i>
                                     </a>
-                                    <button wire:click="delete('{{ $template->id }}')" wire:confirm="Delete this template?" class="text-red-600 hover:text-red-900" title="Delete">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                    @if($template->canAdmin(auth()->user()))
+                                        <button wire:click="delete('{{ $template->id }}')" wire:confirm="Delete this template?" class="text-red-600 hover:text-red-900" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    @endif
                                 </div>
                             </td>
                         </tr>

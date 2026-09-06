@@ -34,6 +34,7 @@ class AgentDeploymentService
 
         return AgentDeployment::create([
             'user_id' => $agent->user_id,
+            'group_id' => $agent->group_id,
             'agent_id' => $agent->id,
             'name' => $agent->name . ' Deployment',
             'slug' => $slug,
@@ -203,6 +204,10 @@ class AgentDeploymentService
 
                 if ($deployment->agent_id) {
                     $query->orWhere('agent_id', $deployment->agent_id);
+                }
+
+                if ($deployment->group_id) {
+                    $query->orWhere('group_id', $deployment->group_id);
                 }
             })
             ->get();

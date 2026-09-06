@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\HasGroupRole;
 use Database\Factories\AgentDeploymentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
-    'user_id', 'agent_id', 'name', 'slug', 'description', 'image', 'namespace',
+    'user_id', 'group_id', 'agent_id', 'name', 'slug', 'description', 'image', 'namespace',
     'model_config', 'soul_markdown', 'agents_markdown', 'config_yaml',
     'env_variables', 'secrets', 'resource_limits', 'replicas', 'domain',
     'status', 'yaml_snapshot', 'is_active', 'deployed_at', 'last_status_check_at',
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class AgentDeployment extends BaseModel
 {
     use HasFactory;
+    use HasGroupRole;
 
     /** @use HasFactory<AgentDeploymentFactory> */
     protected static function newFactory(): AgentDeploymentFactory
@@ -32,6 +34,11 @@ class AgentDeployment extends BaseModel
     public function agent(): BelongsTo
     {
         return $this->belongsTo(Agent::class);
+    }
+
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(Group::class);
     }
 
     public function executions(): HasMany
