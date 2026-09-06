@@ -57,28 +57,37 @@
                             <td class="px-6 py-4 text-sm text-gray-500 truncate max-w-xs">{{ $deployment->image }}</td>
                             <td class="px-6 py-4 text-sm text-gray-500">{{ $deployment->domain }}</td>
                             <td class="px-6 py-4 text-right text-sm font-medium">
-                                <div class="flex justify-end gap-3">
-                                    <a href="{{ route('agent-deployments.show', $deployment->id) }}" class="text-blue-600 hover:text-blue-900" title="View">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    <a href="{{ route('agent-deployments.edit', $deployment->id) }}" class="text-indigo-600 hover:text-indigo-900" title="Edit">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-
-                                    @if($deployment->status !== 'running')
-                                        <button wire:click="scale('{{ $deployment->id }}', 1)" class="text-green-600 hover:text-green-900" title="Start">
-                                            <i class="fas fa-play"></i>
+                                    <div class="flex justify-end gap-3">
+                                        <button wire:click="deploy('{{ $deployment->id }}')" class="text-green-600 hover:text-green-900" title="Deploy to cluster">
+                                            <i class="fas fa-rocket"></i>
                                         </button>
-                                    @else
-                                        <button wire:click="scale('{{ $deployment->id }}', 0)" class="text-orange-600 hover:text-orange-900" title="Stop">
-                                            <i class="fas fa-stop"></i>
+                                        <button wire:click="destroy('{{ $deployment->id }}')" wire:confirm="Remove this deployment from the cluster?" class="text-orange-600 hover:text-orange-900" title="Remove from cluster">
+                                            <i class="fas fa-trash-alt"></i>
                                         </button>
-                                    @endif
+                                        <button wire:click="refreshStatus('{{ $deployment->id }}')" class="text-blue-600 hover:text-blue-900" title="Refresh status">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </button>
+                                        <a href="{{ route('agent-deployments.show', $deployment->id) }}" class="text-blue-600 hover:text-blue-900" title="View">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{{ route('agent-deployments.edit', $deployment->id) }}" class="text-indigo-600 hover:text-indigo-900" title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
 
-                                    <button wire:click="delete('{{ $deployment->id }}')" wire:confirm="Are you sure?" class="text-red-600 hover:text-red-900" title="Delete">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
+                                        @if($deployment->status !== 'running')
+                                            <button wire:click="scale('{{ $deployment->id }}', 1)" class="text-green-600 hover:text-green-900" title="Start">
+                                                <i class="fas fa-play"></i>
+                                            </button>
+                                        @else
+                                            <button wire:click="scale('{{ $deployment->id }}', 0)" class="text-orange-600 hover:text-orange-900" title="Stop">
+                                                <i class="fas fa-stop"></i>
+                                            </button>
+                                        @endif
+
+                                        <button wire:click="delete('{{ $deployment->id }}')" wire:confirm="Delete this deployment from the database and cluster?" class="text-red-600 hover:text-red-900" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
                             </td>
                         </tr>
                     @empty

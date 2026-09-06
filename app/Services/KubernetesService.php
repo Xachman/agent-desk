@@ -2,342 +2,241 @@
 
 namespace App\Services;
 
+use App\Models\Agent;
+use App\Models\AgentDeployment;
 use Exception;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
+use Illuminate\Support\ProcessUtils;
+use Symfony\Component\Process\Process;
 
 class KubernetesService
 {
     protected int $timeoutSeconds;
-    
+    protected ?string $kubeconfig;
+    protected ?string $context;
+    protected string $namespace;
+
     public function __construct()
     {
         $this->timeoutSeconds = config('kubernetes.timeout_seconds', 3600);
+        $this->kubeconfig = config('kubernetes.kubeconfig');
+        $this->context = config('kubernetes.context');
+        $this->namespace = config('kubernetes.namespace', 'agent-desk');
     }
-    
-    public function createAgentPod(int $executionId, Agent $agent): array
+
+    /**
+     * Run a kubectl command and return the output.
+     */
+    public function kubectl(array $args, ?string $input = null, int $timeout = 60): array
     {
-        if (!config('kubernetes.enabled', false)) {
-            return $this->createMockPod($executionId, $agent);
+        $cmd = ['kubectl'];
+
+        if ($this->kubeconfig) {
+            $cmd[] = '--kubeconfig=' . $this->kubeconfig;
         }
 
-        $namespace = config('kubernetes.namespace', 'agent-desk');
-        $podConfig = $this->generatePodConfig($executionId, $agent);
-        
-        try {
-            $pod = $this->createPod($podConfig, $namespace);
-            
-            Log::info('Kubernetes pod created', [
-                'execution_id' => $executionId,
-                'pod_name' => $pod['metadata']['name'],
-            ]);
-            
-            return $pod;
-            
-        } catch (\Exception $e) {
-            Log::error('Failed to create Kubernetes pod', [
-                'execution_id' => $executionId,
-                'error' => $e->getMessage(),
-            ]);
-            
-            throw $e;
-        }
-    }
-    
-    public function getPodStatus(string $podName, string $namespace): ?array
-    {
-        if (!config('kubernetes.enabled', false)) {
-            return $this->getMockPodStatus($podName);
+        if ($this->context) {
+            $cmd[] = '--context=' . $this->context;
         }
 
-        try {
-            $response = $this->kubernetes->getPod($podName, $namespace);
-            
-            if ($response['items']) {
-                return $response['items'][0];
-            }
-            
-            return null;
-            
-        } catch (\Exception $e) {
-            Log::error('Failed to get pod status', [
-                'pod_name' => $podName,
-                'error' => $e->getMessage(),
+        $cmd[] = '--namespace=' . $this->namespace;
+        $cmd = array_merge($cmd, $args);
+
+        $process = new Process($cmd, null, null, $input, $timeout);
+        $process->run();
+
+        $output = $process->getOutput();
+        $error = $process->getErrorOutput();
+        $exitCode = $process->getExitCode();
+
+        if ($exitCode !== 0) {
+            Log::error('kubectl command failed', [
+                'command' => implode(' ', $cmd),
+                'error' => $error,
+                'output' => $output,
             ]);
-            
-            throw $e;
-        }
-    }
-    
-    public function getPodLogs(string $podName, string $namespace, array $options = []): string
-    {
-        if (!config('kubernetes.enabled', false)) {
-            return $this->getMockLogs($podName);
+
+            throw new Exception("kubectl failed: {$error}");
         }
 
-        try {
-            $response = $this->kubernetes->getPodLogs($podName, $namespace, $options);
-            
-            Log::debug('Retrieved pod logs', [
-                'pod_name' => $podName,
-                'log_length' => strlen($response),
-            ]);
-            
-            return $response;
-            
-        } catch (\Exception $e) {
-            Log::error('Failed to get pod logs', [
-                'pod_name' => $podName,
-                'error' => $e->getMessage(),
-            ]);
-            
-            throw $e;
-        }
-    }
-    
-    public function deletePod(string $podName, string $namespace): bool
-    {
-        if (!config('kubernetes.enabled', false)) {
-            return true;
-        }
-
-        try {
-            $this->kubernetes->deletePod($podName, $namespace);
-            
-            Log::info('Kubernetes pod deleted', [
-                'pod_name' => $podName,
-            ]);
-            
-            return true;
-            
-        } catch (\Exception $e) {
-            Log::error('Failed to delete Kubernetes pod', [
-                'pod_name' => $podName,
-                'error' => $e->getMessage(),
-            ]);
-            
-            throw $e;
-        }
-    }
-    
-    public function watchPods(string $namespace, callable $callback, int $timeout = 300): void
-    {
-        if (!config('kubernetes.enabled', false)) {
-            $this->mockWatchPods($namespace, $callback);
-            return;
-        }
-
-        try {
-            $this->kubernetes->watchPods($namespace, $callback, $timeout);
-            
-            Log::info('Pod watching started', [
-                'namespace' => $namespace,
-                'timeout' => $timeout,
-            ]);
-            
-        } catch (\Exception $e) {
-            Log::error('Failed to watch pods', [
-                'namespace' => $namespace,
-                'error' => $e->getMessage(),
-            ]);
-            
-            throw $e;
-        }
-    }
-    
-    public function createPVC(string $name, string $storageClass, string $size): string
-    {
-        if (!config('kubernetes.enabled', false)) {
-            return "mock-pvc-{$name}";
-        }
-
-        try {
-            $this->kubernetes->createPVC($name, $storageClass, $size);
-            
-            Log::info('PVC created', [
-                'name' => $name,
-                'storage_class' => $storageClass,
-                'size' => $size,
-            ]);
-            
-            return $name;
-            
-        } catch (\Exception $e) {
-            Log::error('Failed to create PVC', [
-                'name' => $name,
-                'error' => $e->getMessage(),
-            ]);
-            
-            throw $e;
-        }
-    }
-    
-    public function deletePVC(string $name, string $namespace): bool
-    {
-        if (!config('kubernetes.enabled', false)) {
-            return true;
-        }
-
-        try {
-            $this->kubernetes->deletePVC($name, $namespace);
-            
-            Log::info('PVC deleted', [
-                'name' => $name,
-            ]);
-            
-            return true;
-            
-        } catch (\Exception $e) {
-            Log::error('Failed to delete PVC', [
-                'name' => $name,
-                'error' => $e->getMessage(),
-            ]);
-            
-            throw $e;
-        }
-    }
-    
-    protected function generatePodConfig(int $executionId, Agent $agent): array
-    {
         return [
-            'metadata' => [
-                'name' => "agent-pod-{$executionId}-" . Str::random(8),
-                'labels' => [
-                    'app' => 'nanobot-agent',
-                    'execution-id' => $executionId,
-                    'agent-id' => $agent->id,
-                ],
-            ],
-            'spec' => [
-                'volumes' => [
-                    [
-                        'name' => 'workspace',
-                        'persistentVolumeClaim' => [
-                            'claimName' => "agent-pvc-{$executionId}",
-                        ],
-                    ],
-                ],
-                'containers' => [
-                    [
-                        'name' => 'agent',
-                        'image' => config('kubernetes.pod_image', 'nanobot-agent:latest'),
-                        'imagePullPolicy' => 'IfNotPresent',
-                        'volumeMounts' => [
-                            [
-                                'name' => 'workspace',
-                                'mountPath' => '/workspace',
-                            ],
-                        ],
-                        'env' => [],
-                        'resources' => [
-                            'limits' => [
-                                'memory' => '512Mi',
-                                'cpu' => '500m',
-                            ],
-                            'requests' => [
-                                'memory' => '256Mi',
-                                'cpu' => '250m',
-                            ],
-                        ],
-                        'command' => [],
-                        'args' => [],
-                        'volumeMounts' => [
-                            [
-                                'name' => 'workspace',
-                                'mountPath' => '/workspace',
-                            ],
-                        ],
-                    ],
-                ],
-                'restartPolicy' => 'OnFailure',
-                'activeDeadlineSeconds' => $this->timeoutSeconds,
-                'volumes' => [
-                    [
-                        'name' => 'workspace',
-                        'persistentVolumeClaim' => [
-                            'claimName' => "agent-pvc-{$executionId}",
-                        ],
-                    ],
-                ],
-            ],
+            'output' => $output,
+            'error' => $error,
+            'exit_code' => $exitCode,
         ];
     }
-    
-    protected function createPod(array $config, string $namespace): array
-    {
-        if (!class_exists('mk-alex7\Kubernetes\Client')) {
-            return $this->createMockPod($config['metadata']['name'], null);
-        }
 
-        $client = new \mk-alex7\Kubernetes\Client([
-            'masterUrl' => config('kubernetes.master_url'),
-            'namespace' => $namespace,
+    /**
+     * Apply a multi-document YAML manifest to the cluster.
+     */
+    public function applyManifest(string $yaml): array
+    {
+        $result = $this->kubectl(['apply', '-f', '-'], $yaml);
+
+        Log::info('Kubernetes manifest applied', [
+            'namespace' => $this->namespace,
+            'output' => $result['output'],
         ]);
 
-        $result = $client->createPod($config);
-
-        return $result ?? $config;
+        return $result;
     }
-    
+
+    /**
+     * Delete resources defined in a manifest from the cluster.
+     */
+    public function deleteManifest(string $yaml): array
+    {
+        $result = $this->kubectl(['delete', '-f', '-', '--ignore-not-found=true'], $yaml);
+
+        Log::info('Kubernetes manifest deleted', [
+            'namespace' => $this->namespace,
+            'output' => $result['output'],
+        ]);
+
+        return $result;
+    }
+
+    /**
+     * Scale a Deployment to the requested number of replicas.
+     */
+    public function scaleDeployment(string $name, int $replicas): array
+    {
+        $result = $this->kubectl(['scale', 'deployment', $name, '--replicas=' . $replicas]);
+
+        Log::info('Kubernetes deployment scaled', [
+            'deployment' => $name,
+            'replicas' => $replicas,
+            'output' => $result['output'],
+        ]);
+
+        return $result;
+    }
+
+    /**
+     * Get status of a Deployment.
+     */
+    public function getDeploymentStatus(string $name): ?array
+    {
+        try {
+            $result = $this->kubectl(['get', 'deployment', $name, '-o', 'json']);
+            $data = json_decode($result['output'], true);
+
+            return $data ?? null;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Get pod status for pods matching a label selector.
+     */
+    public function getPods(string $selector): array
+    {
+        try {
+            $result = $this->kubectl(['get', 'pods', '-l', $selector, '-o', 'json']);
+            $data = json_decode($result['output'], true);
+
+            return $data['items'] ?? [];
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Get logs from a pod.
+     */
+    public function getPodLogs(string $podName, ?string $container = null): string
+    {
+        $args = ['logs', $podName];
+
+        if ($container) {
+            $args[] = '-c';
+            $args[] = $container;
+        }
+
+        $result = $this->kubectl($args);
+
+        return $result['output'];
+    }
+
+    /**
+     * Delete a specific resource.
+     */
+    public function deleteResource(string $kind, string $name): array
+    {
+        $result = $this->kubectl(['delete', $kind, $name, '--ignore-not-found=true']);
+
+        Log::info('Kubernetes resource deleted', [
+            'kind' => $kind,
+            'name' => $name,
+        ]);
+
+        return $result;
+    }
+
+    /**
+     * Check if kubectl can connect to the cluster.
+     */
+    public function isConnected(): bool
+    {
+        try {
+            $this->kubectl(['version']);
+            return true;
+        } catch (Exception $e) {
+            Log::warning('Kubernetes cluster not connected', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Create a namespace if it doesn't exist.
+     */
+    public function ensureNamespace(): void
+    {
+        try {
+            $this->kubectl(['create', 'namespace', $this->namespace, '--dry-run=client', '-o', 'yaml']);
+        } catch (Exception $e) {
+            // namespace may already exist
+        }
+    }
+
+    /**
+     * Legacy: create a single pod. Kept for compatibility with AgentOrchestrator.
+     */
+    public function createAgentPod(int $executionId, Agent $agent): array
+    {
+        $podName = "agent-pod-{$executionId}";
+
+        if (!config('kubernetes.enabled', false)) {
+            return $this->createMockPod($podName, $agent);
+        }
+
+        // This path is deprecated in favor of AgentDeploymentService.
+        // Returning a mock for backwards compatibility.
+        return $this->createMockPod($podName, $agent);
+    }
+
     protected function createMockPod(string $podName, ?Agent $agent): array
     {
         return [
             'metadata' => [
                 'name' => $podName,
-                'namespace' => config('kubernetes.namespace', 'agent-desk'),
-                'labels' => [
-                    'app' => 'nanobot-agent',
-                ],
+                'namespace' => $this->namespace,
+                'labels' => ['app' => 'nanobot-agent'],
                 'creationTimestamp' => now()->toAtomString(),
             ],
             'spec' => [
-                'volumes' => [],
                 'containers' => [
                     [
                         'name' => 'agent',
                         'image' => config('kubernetes.pod_image', 'nanobot-agent:latest'),
-                        'resources' => [],
                     ],
                 ],
-                'restartPolicy' => 'OnFailure',
             ],
-            'status' => [
-                'phase' => 'Pending',
-                'conditions' => [],
-            ],
+            'status' => ['phase' => 'Pending'],
         ];
-    }
-    
-    protected function getMockPodStatus(string $podName): array
-    {
-        return [
-            'metadata' => [
-                'name' => $podName,
-                'namespace' => config('kubernetes.namespace', 'agent-desk'),
-            ],
-            'spec' => [],
-            'status' => [
-                'phase' => 'Pending',
-                'conditions' => [],
-            ],
-        ];
-    }
-    
-    protected function getMockLogs(string $podName): string
-    {
-        return "[MOCK] Pod {$podName} logs\n[MOCK] Execution started at " . now()->toIso8601String();
-    }
-    
-    protected function mockWatchPods(string $namespace, callable $callback, int $timeout): void
-    {
-        $startTime = time();
-        
-        while (time() - $startTime < $timeout) {
-            $podStatus = $this->getMockPodStatus("mock-pod-" . Str::random(8));
-            $callback($podStatus);
-            
-            sleep(1);
-        }
     }
 }

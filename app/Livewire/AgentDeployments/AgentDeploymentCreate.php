@@ -81,9 +81,13 @@ class AgentDeploymentCreate extends Component
         $deployment = $this->buildDeployment($validated);
         $deployment->save();
 
-        $service->generateManifest($deployment);
-
-        session()->flash('message', 'Deployment created successfully.');
+        try {
+            $service->deploy($deployment);
+            session()->flash('message', 'Deployment created and applied to cluster.');
+        } catch (\Exception $e) {
+            $service->generateManifest($deployment);
+            session()->flash('error', 'Created but failed to apply to cluster: ' . $e->getMessage());
+        }
 
         $this->redirectRoute('agent-deployments.index');
     }

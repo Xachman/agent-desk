@@ -117,9 +117,14 @@ class AgentDeploymentEdit extends Component
         ]);
 
         $this->deployment->refresh();
-        $service->generateManifest($this->deployment);
 
-        session()->flash('message', 'Deployment updated successfully.');
+        try {
+            $service->deploy($this->deployment);
+            session()->flash('message', 'Deployment updated and applied to cluster.');
+        } catch (\Exception $e) {
+            $service->generateManifest($this->deployment);
+            session()->flash('error', 'Updated but failed to apply to cluster: ' . $e->getMessage());
+        }
 
         $this->redirectRoute('agent-deployments.index');
     }

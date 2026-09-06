@@ -3,11 +3,19 @@
 namespace App\Services;
 
 use App\Models\AgentDeployment;
+use App\Services\KubernetesService;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Yaml\Yaml;
 
 class AgentDeploymentService
 {
+    protected KubernetesService $kubernetes;
+
+    public function __construct(KubernetesService $kubernetes)
+    {
+        $this->kubernetes = $kubernetes;
+    }
+
     /**
      * Generate the complete Kubernetes manifest for an agent deployment.
      */
@@ -26,6 +34,96 @@ class AgentDeploymentService
         $deployment->update(['yaml_snapshot' => $yaml]);
 
         return $manifest;
+    }
+
+    /**
+     * Deploy the agent to the Kubernetes cluster.
+     */
+    public function deploy(AgentDeployment $deployment): array
+    {
+        $manifest = $this->generateManifest($deployment);
+        $yaml = $this->toYaml($manifest);
+
+        $result = $this->kubernetes->applyManifest($yaml);
+
+        $deployment->update([
+            'status' => 'running',
+            'deployed_at' => now(),
+        ]);
+
+        Log::info('Agent deployment applied to cluster', [
+            'deployment_id' => $deployment->id,
+            'slug' => $deployment->slug,
+            'output' => $result['output'],
+        ]);
+
+        return $result;
+    }
+
+    /**
+     * Remove the agent from the Kubernetes cluster.
+     */
+    public function destroy(AgentDeployment $deployment): array
+    {
+        $manifest = $this->generateManifest($deployment);
+        $yaml = $this->toYaml($manifest);
+
+        $result = $this->kubernetes->deleteManifest($yaml);
+
+        $deployment->update([
+            'status' => 'stopped',
+            'replicas' => 0,
+        ]);
+
+        Log::info('Agent deployment removed from cluster', [
+            'deployment_id' => $deployment->id,
+            'slug' => $deployment->slug,
+        ]);
+
+        return $result;
+    }
+
+    /**
+     * Scale the deployment in the cluster.
+     */
+    public function scale(AgentDeployment $deployment, int $replicas): array
+    {
+        $result = $this->kubernetes->scaleDeployment("{$deployment->slug}-agent", $replicas);
+
+        $deployment->update(['replicas' => $replicas]);
+
+        $status = $replicas > 0 ? 'running' : 'stopped';
+        $deployment->update(['status' => $status]);
+
+        Log::info('Agent deployment scaled in cluster', [
+            'deployment_id' => $deployment->id,
+            'slug' => $deployment->slug,
+            'replicas' => $replicas,
+        ]);
+
+        return $result;
+    }
+
+    /**
+     * Refresh deployment status from the cluster.
+     */
+    public function refreshStatus(AgentDeployment $deployment): AgentDeployment
+    {
+        $status = $this->kubernetes->getDeploymentStatus("{$deployment->slug}-agent");
+
+        $replicas = data_get($status, 'spec.replicas', $deployment->replicas);
+        $ready = data_get($status, 'status.readyReplicas', 0);
+        $available = data_get($status, 'status.availableReplicas', 0);
+
+        $deploymentStatus = $replicas > 0 && $available > 0 ? 'running' : ($replicas > 0 ? 'pending' : 'stopped');
+
+        $deployment->update([
+            'replicas' => (int) $replicas,
+            'status' => $deploymentStatus,
+            'last_status_check_at' => now(),
+        ]);
+
+        return $deployment->refresh();
     }
 
     /**
