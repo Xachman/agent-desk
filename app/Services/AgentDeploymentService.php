@@ -15,6 +15,7 @@ class AgentDeploymentService
     {
         $manifest = array_merge(
             $this->pvcs($deployment),
+            $this->secrets($deployment),
             $this->configMaps($deployment),
             $this->service($deployment),
             $this->deployment($deployment),
@@ -38,6 +39,38 @@ class AgentDeploymentService
         }
 
         return "---\n" . implode("\n---\n", $parts);
+    }
+
+    /**
+     * Kubernetes Secrets for the deployment.
+     */
+    public function secrets(AgentDeployment $deployment): array
+    {
+        $secrets = [];
+
+        $storedSecrets = \App\Models\AgentSecret::where('is_active', true)
+            ->where(function ($query) use ($deployment) {
+                $query->where('user_id', $deployment->user_id);
+
+                if ($deployment->agent_id) {
+                    $query->orWhere('agent_id', $deployment->agent_id);
+                }
+            })
+            ->get();
+
+        foreach ($storedSecrets as $secret) {
+            $secrets[] = [
+                'apiVersion' => 'v1',
+                'kind' => 'Secret',
+                'metadata' => ['name' => $secret->kubernetes_secret_name],
+                'type' => 'Opaque',
+                'stringData' => [
+                    $secret->key => $secret->value,
+                ],
+            ];
+        }
+
+        return $secrets;
     }
 
     /**
@@ -360,8 +393,8 @@ class AgentDeploymentService
             $env[] = ['name' => $key, 'value' => (string) $value];
         }
 
-        $secrets = $deployment->secrets ?: [];
-        foreach ($secrets as $secret) {
+        $manualSecrets = $deployment->secrets ?: [];
+        foreach ($manualSecrets as $secret) {
             if (empty($secret['name']) || empty($secret['secret_name']) || empty($secret['key'])) {
                 continue;
             }
@@ -372,6 +405,28 @@ class AgentDeploymentService
                     'secretKeyRef' => [
                         'name' => $secret['secret_name'],
                         'key' => $secret['key'],
+                    ],
+                ],
+            ];
+        }
+
+        $storedSecrets = \App\Models\AgentSecret::where('is_active', true)
+            ->where(function ($query) use ($deployment) {
+                $query->where('user_id', $deployment->user_id);
+
+                if ($deployment->agent_id) {
+                    $query->orWhere('agent_id', $deployment->agent_id);
+                }
+            })
+            ->get();
+
+        foreach ($storedSecrets as $secret) {
+            $env[] = [
+                'name' => $secret->name,
+                'valueFrom' => [
+                    'secretKeyRef' => [
+                        'name' => $secret->kubernetes_secret_name,
+                        'key' => $secret->key,
                     ],
                 ],
             ];

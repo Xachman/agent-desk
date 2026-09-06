@@ -41,4 +41,9 @@ class Agent extends BaseModel
     {
         return $this->hasMany(AgentOutput::class);
     }
+
+    public function secrets(): HasMany
+    {
+        return $this->hasMany(AgentSecret::class);
+    }
 }

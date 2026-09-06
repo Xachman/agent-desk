@@ -20,6 +20,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/templates', \App\Livewire\Templates\TemplateIndex::class)->name('agent-templates.index');
     Route::get('/templates/create', \App\Livewire\Templates\TemplateCreate::class)->name('agent-templates.create');
     Route::get('/templates/{template}/edit', \App\Livewire\Templates\TemplateEdit::class)->name('agent-templates.edit');
+
+    Route::get('/secrets', \App\Livewire\Secrets\SecretIndex::class)->name('secrets.index');
+    Route::get('/secrets/create', \App\Livewire\Secrets\SecretCreate::class)->name('secrets.create');
+    Route::get('/secrets/{secret}/edit', \App\Livewire\Secrets\SecretEdit::class)->name('secrets.edit');
 });
 
 Route::middleware(['auth', 'admin'])->group(function () {
