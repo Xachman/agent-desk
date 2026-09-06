@@ -5,6 +5,7 @@ namespace App\Livewire\Dashboard;
 use App\Models\Agent;
 use App\Models\AgentExecution;
 use App\Models\AgentTemplate;
+use App\Services\AgentDeploymentService;
 use App\Services\AgentOrchestrator;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
@@ -26,12 +27,6 @@ class Dashboard extends Component
     public string $agentEnvJson = '{}';
     public bool $agentIsActive = true;
 
-    // Run form
-    public bool $showRunForm = false;
-    public ?string $runningAgentId = null;
-    public string $runInputJson = '{"prompt": ""}';
-    public string $runContextJson = '{}';
-
     public function mount(): void
     {
         $this->activeTab = request()->query('tab', 'agents');
@@ -41,7 +36,6 @@ class Dashboard extends Component
     {
         $this->activeTab = $tab;
         $this->showAgentForm = false;
-        $this->showRunForm = false;
         $this->resetForm();
     }
 
@@ -66,7 +60,7 @@ class Dashboard extends Component
         $this->showAgentForm = true;
     }
 
-    public function saveAgent(): void
+    public function saveAgent(AgentDeploymentService $deploymentService): void
     {
         $validated = $this->validate([
             'agentName' => 'required|string|max:255',
@@ -88,11 +82,25 @@ class Dashboard extends Component
         ];
 
         if ($this->editingAgentId) {
-            Agent::findOrFail($this->editingAgentId)->update($data);
+            $agent = Agent::findOrFail($this->editingAgentId);
+            $agent->update($data);
             session()->flash('message', 'Agent updated successfully.');
         } else {
-            Agent::create($data);
+            $agent = Agent::create($data);
             session()->flash('message', 'Agent created successfully.');
+        }
+
+        try {
+            $deployment = $deploymentService->createDeploymentFromAgent($agent);
+            $deploymentService->deploy($deployment);
+            session()->flash('message', session('message') . ' Deployment applied to cluster: ' . $deployment->slug);
+        } catch (\Exception $e) {
+            Log::error('Auto-deploy agent failed', [
+                'agent_id' => $agent->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            session()->flash('error', 'Agent saved but deployment failed: ' . $e->getMessage());
         }
 
         $this->showAgentForm = false;
@@ -105,48 +113,6 @@ class Dashboard extends Component
         $agent->delete();
 
         session()->flash('message', 'Agent deleted successfully.');
-    }
-
-    public function runAgentModal(string $id): void
-    {
-        $this->runningAgentId = $id;
-        $this->runInputJson = '{"prompt": ""}';
-        $this->runContextJson = '{}';
-        $this->showRunForm = true;
-    }
-
-    public function executeAgent(): void
-    {
-        $validated = $this->validate([
-            'runInputJson' => 'required|string',
-            'runContextJson' => 'nullable|string',
-        ]);
-
-        $agent = Agent::where('user_id', auth()->id())->findOrFail($this->runningAgentId);
-
-        if (!$agent->is_active) {
-            session()->flash('error', 'Agent is not active.');
-            return;
-        }
-
-        $input = $this->safeJsonDecode($this->runInputJson) ?? [];
-        $context = $this->safeJsonDecode($this->runContextJson);
-
-        try {
-            $orchestrator = app(AgentOrchestrator::class);
-            $execution = $orchestrator->executeAgent((int) $agent->id, $input, $context);
-
-            session()->flash('message', 'Execution started: ' . $execution->id);
-        } catch (\Exception $e) {
-            Log::error('Dashboard agent execution failed', [
-                'agent_id' => $agent->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            session()->flash('error', 'Execution failed: ' . $e->getMessage());
-        }
-
-        $this->showRunForm = false;
     }
 
     public function cancelExecution(string $id): void
@@ -175,7 +141,6 @@ class Dashboard extends Component
         $this->agentEnvJson = '{}';
         $this->agentIsActive = true;
         $this->editingAgentId = null;
-        $this->runningAgentId = null;
     }
 
     protected function safeJsonDecode(?string $json): ?array
@@ -194,7 +159,7 @@ class Dashboard extends Component
         $userId = auth()->id();
 
         $agents = Agent::where('user_id', $userId)
-            ->with('template')
+            ->with(['template', 'deployment'])
             ->orderBy('created_at', 'desc')
             ->paginate(10, pageName: 'agentsPage');
 

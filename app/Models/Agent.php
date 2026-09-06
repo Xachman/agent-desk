@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'user_id', 'template_id', 'name', 'description',
@@ -45,5 +46,10 @@ class Agent extends BaseModel
     public function secrets(): HasMany
     {
         return $this->hasMany(AgentSecret::class);
+    }
+
+    public function deployment(): HasOne
+    {
+        return $this->hasOne(AgentDeployment::class);
     }
 }

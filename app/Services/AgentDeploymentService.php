@@ -17,6 +17,57 @@ class AgentDeploymentService
     }
 
     /**
+     * Create a deployment record from an Agent model.
+     */
+    public function createDeploymentFromAgent(\App\Models\Agent $agent): AgentDeployment
+    {
+        $slug = \Illuminate\Support\Str::slug($agent->name . '-' . substr($agent->id, 0, 8));
+
+        // Ensure unique slug
+        $baseSlug = $slug;
+        $counter = 1;
+        while (AgentDeployment::where('slug', $slug)->exists()) {
+            $slug = $baseSlug . '-' . $counter++;
+        }
+
+        $template = $agent->template;
+
+        return AgentDeployment::create([
+            'user_id' => $agent->user_id,
+            'agent_id' => $agent->id,
+            'name' => $agent->name . ' Deployment',
+            'slug' => $slug,
+            'description' => 'Auto-created deployment for agent ' . $agent->name,
+            'image' => config('kubernetes.pod_image', 'nousresearch/hermes-agent:v2026.4.30'),
+            'namespace' => config('kubernetes.namespace', 'agent-desk'),
+            'domain' => config('kubernetes.domain', 'agent-services.example.com'),
+            'replicas' => 1,
+            'status' => 'pending',
+            'is_active' => true,
+            'model_config' => [
+                'default' => 'kimi-k2.6:cloud',
+                'provider' => 'ollama-cloud',
+                'api_mode' => 'chat_completions',
+            ],
+            'soul_markdown' => $template?->system_prompt ? "## Agent Identity\n- Name: {$agent->name}\n\n## Personality\n{$template->system_prompt}" : null,
+            'agents_markdown' => $template?->system_prompt ? "## Agent Overview\n{$template->system_prompt}" : null,
+            'config_yaml' => null,
+            'env_variables' => $agent->env_variables,
+            'secrets' => [],
+            'resource_limits' => [
+                'agent' => [
+                    'limits' => ['memory' => '8000Mi', 'cpu' => '2000m'],
+                    'requests' => ['memory' => '500Mi', 'cpu' => '500m'],
+                ],
+                'dind' => [
+                    'limits' => ['memory' => '4000Mi', 'cpu' => '2000m'],
+                    'requests' => ['memory' => '1000Mi', 'cpu' => '500m'],
+                ],
+            ],
+        ]);
+    }
+
+    /**
      * Generate the complete Kubernetes manifest for an agent deployment.
      */
     public function generateManifest(AgentDeployment $deployment): array

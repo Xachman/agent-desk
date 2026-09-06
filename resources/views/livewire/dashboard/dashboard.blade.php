@@ -116,25 +116,6 @@
                     </form>
                 @endif
 
-                @if($showRunForm)
-                    <form wire:submit="executeAgent" class="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-200 space-y-4">
-                        <h3 class="font-semibold text-gray-900"><i class="fas fa-play mr-2"></i>Run Agent</h3>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Input (JSON)</label>
-                            <textarea wire:model="runInputJson" rows="5" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 font-mono text-sm"></textarea>
-                            @error('runInputJson') <span class="text-red-600 text-sm">{{ $message }}</span> @enderror
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Context (JSON, optional)</label>
-                            <textarea wire:model="runContextJson" rows="3" class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 font-mono text-sm"></textarea>
-                        </div>
-                        <div class="flex justify-end gap-3">
-                            <button type="button" wire:click="$set('showRunForm', false)" class="px-4 py-2 border border-gray-300 rounded">Cancel</button>
-                            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded">Run</button>
-                        </div>
-                    </form>
-                @endif
-
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
@@ -162,9 +143,11 @@
                                     <td class="px-6 py-4 text-sm text-gray-500">{{ $agent->created_at->diffForHumans() }}</td>
                                     <td class="px-6 py-4 text-right text-sm font-medium">
                                         <div class="flex justify-end gap-3">
-                                            <button wire:click="runAgentModal('{{ $agent->id }}')" class="text-green-600 hover:text-green-900" title="Run">
-                                                <i class="fas fa-play"></i>
-                                            </button>
+                                            @if($agent->deployment)
+                                                <a href="{{ route('agent-deployments.show', $agent->deployment->id) }}" class="text-blue-600 hover:text-blue-900" title="View Deployment">
+                                                    <i class="fas fa-server"></i>
+                                                </a>
+                                            @endif
                                             <button wire:click="editAgent('{{ $agent->id }}')" class="text-indigo-600 hover:text-indigo-900" title="Edit">
                                                 <i class="fas fa-edit"></i>
                                             </button>

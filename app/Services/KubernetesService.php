@@ -31,9 +31,9 @@ class KubernetesService
     {
         $cmd = ['kubectl'];
 
-        if ($this->kubeconfig) {
-            $cmd[] = '--kubeconfig=' . $this->kubeconfig;
-        }
+        $kubeconfig = $this->kubeconfig ?: getenv('HOME') . '/.kube/config';
+
+        $cmd[] = '--kubeconfig=' . $kubeconfig;
 
         if ($this->context) {
             $cmd[] = '--context=' . $this->context;
@@ -42,7 +42,12 @@ class KubernetesService
         $cmd[] = '--namespace=' . $this->namespace;
         $cmd = array_merge($cmd, $args);
 
-        $process = new Process($cmd, null, null, $input, $timeout);
+        $env = [
+            'HOME' => getenv('HOME') ?: '/home/ubuntu',
+            'KUBECONFIG' => $kubeconfig,
+        ];
+
+        $process = new Process($cmd, base_path(), $env, $input, $timeout);
         $process->run();
 
         $output = $process->getOutput();
@@ -54,6 +59,7 @@ class KubernetesService
                 'command' => implode(' ', $cmd),
                 'error' => $error,
                 'output' => $output,
+                'env' => $env,
             ]);
 
             throw new Exception("kubectl failed: {$error}");
@@ -71,7 +77,9 @@ class KubernetesService
      */
     public function applyManifest(string $yaml): array
     {
-        $result = $this->kubectl(['apply', '-f', '-'], $yaml);
+        $this->ensureNamespace();
+
+        $result = $this->kubectl(['apply', '--validate=false', '-f', '-'], $yaml);
 
         Log::info('Kubernetes manifest applied', [
             'namespace' => $this->namespace,
@@ -197,9 +205,30 @@ class KubernetesService
     public function ensureNamespace(): void
     {
         try {
-            $this->kubectl(['create', 'namespace', $this->namespace, '--dry-run=client', '-o', 'yaml']);
+            $this->kubectl([
+                'create',
+                'namespace',
+                $this->namespace,
+                '--dry-run=client',
+                '-o',
+                'yaml',
+            ]);
         } catch (Exception $e) {
             // namespace may already exist
+        }
+
+        try {
+            $this->kubectl([
+                'apply',
+                '--validate=false',
+                '-f',
+                '-',
+            ], "---\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: {$this->namespace}\n");
+        } catch (Exception $e) {
+            Log::warning('Could not ensure namespace', [
+                'namespace' => $this->namespace,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 
