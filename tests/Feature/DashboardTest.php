@@ -37,6 +37,7 @@ class DashboardTest extends TestCase
         $this->actingAs($user);
 
         \Livewire\Livewire::test(\App\Livewire\Dashboard\Dashboard::class)
+            ->set('groupId', $user->personalGroup->id)
             ->set('agentName', 'My Agent')
             ->set('agentDescription', 'Test agent')
             ->set('agentConfigJson', '{"model":"gpt-4"}')
@@ -48,6 +49,7 @@ class DashboardTest extends TestCase
         $this->assertDatabaseHas('agents', [
             'name' => 'My Agent',
             'user_id' => $user->id,
+            'group_id' => $user->personalGroup->id,
         ]);
     }
 
@@ -56,13 +58,14 @@ class DashboardTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'user']);
         $other = User::factory()->create();
-        $agent = Agent::factory()->create(['user_id' => $other->id]);
+        $agent = Agent::factory()->create(['user_id' => $other->id, 'group_id' => $other->personalGroup->id]);
 
         $this->actingAs($user);
 
         $this->expectException(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
 
         \Livewire\Livewire::test(\App\Livewire\Dashboard\Dashboard::class)
+            ->set('groupId', $user->personalGroup->id)
             ->call('deleteAgent', $agent->id);
     }
 }

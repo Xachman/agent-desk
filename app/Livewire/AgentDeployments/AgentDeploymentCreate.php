@@ -4,6 +4,7 @@ namespace App\Livewire\AgentDeployments;
 
 use App\Models\Agent;
 use App\Models\AgentDeployment;
+use App\Models\Group;
 use App\Services\AgentDeploymentService;
 use Illuminate\Support\Str;
 use Livewire\Component;
@@ -46,7 +47,8 @@ class AgentDeploymentCreate extends Component
 
     public function mount(): void
     {
-        $this->agents = Agent::orderBy('name')->get(['id', 'name'])->toArray();
+        $groupIds = auth()->user()->groups()->pluck('groups.id')->all();
+        $this->agents = Agent::whereIn('group_id', $groupIds)->orderBy('name')->get(['id', 'name'])->toArray();
     }
 
     public function updatedName(string $value): void
@@ -94,9 +96,14 @@ class AgentDeploymentCreate extends Component
 
     protected function buildDeployment(array $validated): AgentDeployment
     {
+        $groupId = $this->agent_id
+            ? Agent::find($this->agent_id)?->group_id
+            : auth()->user()->personalGroup?->id;
+
         $deployment = new AgentDeployment();
         $deployment->forceFill([
             'user_id' => auth()->id(),
+            'group_id' => $groupId,
             'agent_id' => $validated['agent_id'] ?? null,
             'name' => $validated['name'],
             'slug' => Str::slug($validated['slug']),

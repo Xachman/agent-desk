@@ -20,7 +20,7 @@ class TemplateTest extends TestCase
         $this->actingAs($user)
             ->get('/templates')
             ->assertStatus(200)
-            ->assertSee('Templates');
+            ->assertSee($user->personalGroup->name . ' Templates');
     }
 
     #[Test]
@@ -37,11 +37,12 @@ class TemplateTest extends TestCase
             ->set('envJson', '{}')
             ->set('toolDefinitionsJson', '[]')
             ->call('store')
-            ->assertRedirect('/templates');
+            ->assertRedirect('/groups/' . $user->personalGroup->id . '?tab=templates');
 
         $this->assertDatabaseHas('agent_templates', [
             'name' => 'Support Agent',
             'system_prompt' => 'You are a helpful support agent.',
+            'group_id' => $user->personalGroup->id,
         ]);
     }
 
@@ -49,14 +50,14 @@ class TemplateTest extends TestCase
     public function authenticated_user_can_edit_template(): void
     {
         $user = User::factory()->create();
-        $template = AgentTemplate::factory()->create();
+        $template = AgentTemplate::factory()->create(['user_id' => $user->id, 'group_id' => $user->personalGroup->id]);
         $this->actingAs($user);
 
         \Livewire\Livewire::test(\App\Livewire\Templates\TemplateEdit::class, ['template' => $template])
             ->set('name', 'Updated Name')
             ->set('systemPrompt', 'Updated prompt.')
             ->call('update')
-            ->assertRedirect('/templates');
+            ->assertRedirect('/groups/' . $user->personalGroup->id . '?tab=templates');
 
         $this->assertDatabaseHas('agent_templates', [
             'id' => $template->id,

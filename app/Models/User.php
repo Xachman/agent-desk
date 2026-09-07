@@ -12,11 +12,53 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'username', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     use HasFactory, HasApiTokens, Notifiable;
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function (User $user) {
+            if (empty($user->username)) {
+                $user->username = static::generateUniqueUsername($user->name);
+            }
+        });
+
+        static::created(function (User $user) {
+            $user->personalGroup()->firstOrCreate(
+                ['owner_id' => $user->id],
+                [
+                    'name' => $user->name ?: $user->username,
+                    'slug' => $user->username,
+                    'description' => 'Personal workspace for ' . ($user->name ?: $user->username),
+                ]
+            );
+        });
+    }
+
+    public static function generateUniqueUsername(string $name): string
+    {
+        $base = \Illuminate\Support\Str::slug($name) ?: 'user';
+        $base = substr($base, 0, 50);
+        $username = $base;
+        $counter = 1;
+
+        while (static::where('username', $username)->exists()) {
+            $suffix = '-' . $counter++;
+            $username = substr($base, 0, 50 - strlen($suffix)) . $suffix;
+        }
+
+        return $username;
+    }
+
+    public function personalGroup(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Group::class, 'owner_id');
+    }
 
     public function groups(): BelongsToMany
     {

@@ -15,27 +15,40 @@ class SecretIndex extends Component
 
     public string $search = '';
     public ?string $agentFilter = '';
-    public ?string $groupId = null;
+    public string $groupId = '';
 
     protected $queryString = ['search', 'agentFilter', 'groupId'];
 
     public function mount(): void
     {
-        $this->groupId = request()->query('group');
+        $requestedGroupId = request()->query('group');
+        $this->groupId = $this->resolveGroupId($requestedGroupId);
+    }
 
-        if ($this->groupId) {
-            $group = Group::find($this->groupId);
+    protected function resolveGroupId(?string $requested): string
+    {
+        if ($requested) {
+            $group = Group::find($requested);
 
-            if (!$group || !Gate::allows('member-group', $group)) {
-                $this->groupId = null;
-                abort(403);
+            if ($group && Gate::allows('member-group', $group)) {
+                return $group->id;
             }
+
+            abort(403);
         }
+
+        $personalGroup = auth()->user()->personalGroup;
+
+        if (! $personalGroup) {
+            abort(403, 'No personal group found.');
+        }
+
+        return $personalGroup->id;
     }
 
     public function delete(string $id): void
     {
-        $secret = AgentSecret::findOrFail($id);
+        $secret = AgentSecret::where('group_id', $this->groupId)->findOrFail($id);
 
         if (! Gate::allows('delete-secret', $secret)) {
             abort(403);
@@ -47,8 +60,6 @@ class SecretIndex extends Component
 
     public function render()
     {
-        $userId = auth()->id();
-
         $secretQuery = AgentSecret::query()
             ->with('agent')
             ->when($this->search, function ($query) {
@@ -61,32 +72,19 @@ class SecretIndex extends Component
             ->when($this->agentFilter, function ($query) {
                 $query->where('agent_id', $this->agentFilter);
             })
-            ->when($this->groupId, function ($query) {
-                $query->where('group_id', $this->groupId);
-            }, function ($query) use ($userId) {
-                $query->where(function ($q) use ($userId) {
-                    $q->whereNull('group_id')->where('user_id', $userId);
-                })->orWhere(function ($q) use ($userId) {
-                    $q->whereNotNull('group_id')
-                        ->whereHas('group.users', function ($gq) use ($userId) {
-                            $gq->where('users.id', $userId);
-                        });
-                });
-            })
+            ->where('group_id', $this->groupId)
             ->orderBy('created_at', 'desc');
 
-        $agents = $this->groupId
-            ? Agent::where('group_id', $this->groupId)->orderBy('name')->get()
-            : Agent::whereNull('group_id')->where('user_id', $userId)->orderBy('name')->get();
+        $agents = Agent::where('group_id', $this->groupId)->orderBy('name')->get();
 
-        $group = $this->groupId ? Group::find($this->groupId) : null;
-        $canCreate = $group ? Gate::allows('admin-group', $group) : true;
+        $group = Group::find($this->groupId);
+        $canCreate = Gate::allows('admin-group', $group);
 
         return view('livewire.secrets.index', [
             'secrets' => $secretQuery->paginate(10),
             'agents' => $agents,
             'group' => $group,
             'canCreate' => $canCreate,
-        ])->layout('layouts.adminlte', ['title' => $group ? "Secrets: {$group->name}" : 'Secrets']);
+        ])->layout('layouts.adminlte', ['title' => "Secrets: {$group->name}"]);
     }
 }

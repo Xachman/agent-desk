@@ -11,7 +11,7 @@ use Livewire\Component;
 class SecretEdit extends Component
 {
     public AgentSecret $secret;
-    public ?string $groupId = null;
+    public string $groupId = '';
 
     public string $name = '';
     public string $kubernetesSecretName = '';
@@ -27,21 +27,17 @@ class SecretEdit extends Component
         $this->secret = $secret;
         $this->groupId = request()->query('group') ?: $secret->group_id;
 
-        if ($this->groupId) {
-            $group = Group::find($this->groupId);
+        $group = Group::find($this->groupId);
 
-            if (!$group || !Gate::allows('member-group', $group)) {
-                abort(403);
-            }
-
-            $this->agents = Agent::where('group_id', $this->groupId)->orderBy('name')->get(['id', 'name'])->toArray();
-        } else {
-            $this->agents = Agent::whereNull('group_id')->where('user_id', auth()->id())->orderBy('name')->get(['id', 'name'])->toArray();
+        if (!$group || !Gate::allows('member-group', $group)) {
+            abort(403);
         }
 
         if (! Gate::allows('update-secret', $secret)) {
             abort(403);
         }
+
+        $this->agents = Agent::where('group_id', $this->groupId)->orderBy('name')->get(['id', 'name'])->toArray();
 
         $this->name = $secret->name;
         $this->kubernetesSecretName = $secret->kubernetes_secret_name;
@@ -65,7 +61,7 @@ class SecretEdit extends Component
             'agentId' => 'nullable|uuid|exists:agents,id',
         ]);
 
-        if ($this->groupId && $this->agentId) {
+        if ($this->agentId) {
             Agent::where('group_id', $this->groupId)->findOrFail($this->agentId);
         }
 
@@ -79,18 +75,17 @@ class SecretEdit extends Component
         ]);
 
         session()->flash('message', 'Secret updated successfully.');
-
-        $this->redirect('/secrets');
+        $this->redirect('/groups/' . $this->groupId . '?tab=secrets');
     }
 
     public function render()
     {
-        $group = $this->groupId ? Group::find($this->groupId) : null;
+        $group = Group::find($this->groupId);
         $canAdmin = $this->secret->canAdmin(auth()->user());
 
         return view('livewire.secrets.edit', [
             'group' => $group,
             'canAdmin' => $canAdmin,
-        ])->layout('layouts.adminlte', ['title' => $group ? "Edit Secret: {$group->name}" : 'Edit Secret']);
+        ])->layout('layouts.adminlte', ['title' => "Edit Secret: {$group->name}"]);
     }
 }

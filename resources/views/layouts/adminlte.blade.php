@@ -26,15 +26,18 @@
 
             <nav class="flex-1 overflow-y-auto py-4">
                 <div class="px-4 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Main</div>
-                <a href="{{ route('dashboard') }}" class="flex items-center px-6 py-3 hover:bg-slate-700 {{ request()->routeIs('dashboard') ? 'bg-slate-700 border-l-4 border-blue-500' : '' }}">
+                @php
+                    $personalGroupId = auth()->user()->personalGroup?->id;
+                @endphp
+                <a href="{{ $personalGroupId ? route('dashboard', ['group' => $personalGroupId]) : route('dashboard') }}" class="flex items-center px-6 py-3 hover:bg-slate-700 {{ request()->routeIs('dashboard') ? 'bg-slate-700 border-l-4 border-blue-500' : '' }}">
                     <i class="fas fa-tachometer-alt w-5"></i>
                     <span>Dashboard</span>
                 </a>
-                <a href="{{ route('agent-templates.index') }}" class="flex items-center px-6 py-3 hover:bg-slate-700 {{ request()->routeIs('agent-templates.*') ? 'bg-slate-700 border-l-4 border-blue-500' : '' }}">
+                <a href="{{ $personalGroupId ? route('agent-templates.index', ['group' => $personalGroupId]) : route('agent-templates.index') }}" class="flex items-center px-6 py-3 hover:bg-slate-700 {{ request()->routeIs('agent-templates.*') ? 'bg-slate-700 border-l-4 border-blue-500' : '' }}">
                     <i class="fas fa-layer-group w-5"></i>
                     <span>Templates</span>
                 </a>
-                <a href="{{ route('secrets.index') }}" class="flex items-center px-6 py-3 hover:bg-slate-700 {{ request()->routeIs('secrets.*') ? 'bg-slate-700 border-l-4 border-blue-500' : '' }}">
+                <a href="{{ $personalGroupId ? route('secrets.index', ['group' => $personalGroupId]) : route('secrets.index') }}" class="flex items-center px-6 py-3 hover:bg-slate-700 {{ request()->routeIs('secrets.*') ? 'bg-slate-700 border-l-4 border-blue-500' : '' }}">
                     <i class="fas fa-key w-5"></i>
                     <span>Secrets</span>
                 </a>

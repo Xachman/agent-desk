@@ -9,7 +9,7 @@ use Livewire\Component;
 
 class TemplateCreate extends Component
 {
-    public ?string $groupId = null;
+    public string $groupId = '';
 
     public string $name = '';
     public string $description = '';
@@ -21,15 +21,29 @@ class TemplateCreate extends Component
 
     public function mount(): void
     {
-        $this->groupId = request()->query('group');
+        $requestedGroupId = request()->query('group');
+        $this->groupId = $this->resolveGroupId($requestedGroupId);
+    }
 
-        if ($this->groupId) {
-            $group = Group::find($this->groupId);
+    protected function resolveGroupId(?string $requested): string
+    {
+        if ($requested) {
+            $group = Group::find($requested);
 
-            if (!$group || !Gate::allows('admin-group', $group)) {
-                abort(403);
+            if ($group && Gate::allows('admin-group', $group)) {
+                return $group->id;
             }
+
+            abort(403);
         }
+
+        $personalGroup = auth()->user()->personalGroup;
+
+        if (! $personalGroup) {
+            abort(403, 'No personal group found.');
+        }
+
+        return $personalGroup->id;
     }
 
     public function store(): void
@@ -57,10 +71,7 @@ class TemplateCreate extends Component
         ]);
 
         session()->flash('message', 'Template created successfully.');
-
-        $this->redirect($this->groupId
-            ? route('groups.show', ['group' => $this->groupId, 'tab' => 'templates'])
-            : route('agent-templates.index'));
+        $this->redirect('/groups/' . $this->groupId . '?tab=templates');
     }
 
     protected function safeJsonDecode(?string $json): ?array
@@ -76,10 +87,10 @@ class TemplateCreate extends Component
 
     public function render()
     {
-        $group = $this->groupId ? Group::find($this->groupId) : null;
+        $group = Group::find($this->groupId);
 
         return view('livewire.templates.create', [
             'group' => $group,
-        ])->layout('layouts.adminlte', ['title' => $group ? "Create Template: {$group->name}" : 'Create Template']);
+        ])->layout('layouts.adminlte', ['title' => "Create Template: {$group->name}"]);
     }
 }

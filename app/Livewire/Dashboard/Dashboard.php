@@ -3,7 +3,6 @@
 namespace App\Livewire\Dashboard;
 
 use App\Models\Agent;
-use App\Models\AgentDeployment;
 use App\Models\AgentExecution;
 use App\Models\AgentTemplate;
 use App\Models\Group;
@@ -18,7 +17,7 @@ class Dashboard extends Component
     use WithPagination;
 
     public string $activeTab = 'agents';
-    public ?string $groupId = null;
+    public string $groupId = '';
 
     // Agent form
     public bool $showAgentForm = false;
@@ -35,16 +34,30 @@ class Dashboard extends Component
     public function mount(): void
     {
         $this->activeTab = request()->query('tab', 'agents');
-        $this->groupId = request()->query('group');
+        $requestedGroupId = request()->query('group');
 
-        if ($this->groupId) {
-            $group = Group::find($this->groupId);
+        $this->groupId = $this->resolveGroupId($requestedGroupId);
+    }
 
-            if (!$group || !Gate::allows('member-group', $group)) {
-                $this->groupId = null;
-                abort(403);
+    protected function resolveGroupId(?string $requested): string
+    {
+        if ($requested) {
+            $group = Group::find($requested);
+
+            if ($group && Gate::allows('member-group', $group)) {
+                return $group->id;
             }
+
+            abort(403);
         }
+
+        $personalGroup = auth()->user()->personalGroup;
+
+        if (! $personalGroup) {
+            abort(403, 'No personal group found.');
+        }
+
+        return $personalGroup->id;
     }
 
     public function setTab(string $tab): void
@@ -177,11 +190,7 @@ class Dashboard extends Component
 
         $agent = $execution->agent;
 
-        if ($agent && $agent->group_id !== null) {
-            if (! Gate::allows('member-group', $agent->group)) {
-                abort(403);
-            }
-        } elseif ($agent && $agent->user_id !== auth()->id()) {
+        if ($agent && ! Gate::allows('member-group', $agent->group)) {
             abort(403);
         }
 
@@ -200,39 +209,22 @@ class Dashboard extends Component
 
     protected function findAgent(string $id): Agent
     {
-        $query = Agent::query();
-
-        if ($this->groupId) {
-            $query->where('group_id', $this->groupId);
-        } else {
-            $query->whereNull('group_id')->where('user_id', auth()->id());
-        }
-
-        return $query->findOrFail($id);
+        return Agent::where('group_id', $this->groupId)->findOrFail($id);
     }
 
     protected function findExecution(string $id): ?AgentExecution
     {
-        $userId = auth()->id();
         $groupIds = auth()->user()->groups()->pluck('groups.id')->all();
 
         return AgentExecution::where('id', $id)
-            ->whereHas('agent', function ($query) use ($userId, $groupIds) {
-                $query->where(function ($q) use ($userId) {
-                    $q->whereNull('group_id')->where('user_id', $userId);
-                })->orWhere(function ($q) use ($groupIds) {
-                    $q->whereIn('group_id', $groupIds);
-                });
+            ->whereHas('agent', function ($query) use ($groupIds) {
+                $query->whereIn('group_id', $groupIds);
             })
             ->first();
     }
 
     protected function canCreateAgent(): bool
     {
-        if (! $this->groupId) {
-            return true;
-        }
-
         $group = Group::find($this->groupId);
 
         return $group && Gate::allows('admin-group', $group);
@@ -240,10 +232,6 @@ class Dashboard extends Component
 
     protected function canUseTemplate(AgentTemplate $template): bool
     {
-        if ($template->group_id === null) {
-            return true;
-        }
-
         return Gate::allows('member-group', $template->group);
     }
 
@@ -274,46 +262,31 @@ class Dashboard extends Component
         $user = auth()->user();
         $userId = $user->id;
 
-        $agentQuery = Agent::query()
+        $agents = Agent::where('group_id', $this->groupId)
             ->with(['template', 'deployment'])
-            ->when($this->groupId, function ($query) {
-                $query->where('group_id', $this->groupId);
-            }, function ($query) use ($userId) {
-                $query->whereNull('group_id')->where('user_id', $userId);
-            })
-            ->orderBy('created_at', 'desc');
+            ->orderBy('created_at', 'desc')
+            ->paginate(10, pageName: 'agentsPage');
 
-        $agents = $agentQuery->paginate(10, pageName: 'agentsPage');
-
-        $executionQuery = AgentExecution::query()
+        $executions = AgentExecution::query()
             ->with('agent')
             ->whereHas('agent', function ($query) use ($userId) {
-                $query->where(function ($q) use ($userId) {
-                    $q->whereNull('group_id')->where('user_id', $userId);
-                })->orWhere(function ($q) {
-                    $q->whereNotNull('group_id')->whereHas('group.users', function ($gq) {
-                        $gq->where('users.id', auth()->id());
-                    });
+                $query->whereHas('group.users', function ($gq) use ($userId) {
+                    $gq->where('users.id', $userId);
                 });
             })
-            ->orderBy('created_at', 'desc');
+            ->orderBy('created_at', 'desc')
+            ->paginate(10, pageName: 'executionsPage');
 
-        $executions = $executionQuery->paginate(10, pageName: 'executionsPage');
-
-        $templateQuery = AgentTemplate::query()
-            ->where(function ($query) use ($userId) {
-                $query->whereNull('group_id');
-            })
-            ->orWhereHas('group.users', function ($query) use ($userId) {
+        $templates = AgentTemplate::query()
+            ->whereHas('group.users', function ($query) use ($userId) {
                 $query->where('users.id', $userId);
             })
-            ->orderBy('name');
+            ->orderBy('name')
+            ->get();
 
-        $templates = $templateQuery->get();
-
-        $group = $this->groupId ? Group::find($this->groupId) : null;
+        $group = Group::find($this->groupId);
         $canCreate = $this->canCreateAgent();
-        $canAdmin = $group ? Gate::allows('admin-group', $group) : true;
+        $canAdmin = Gate::allows('admin-group', $group);
 
         return view('livewire.dashboard.dashboard', [
             'agents' => $agents,
@@ -322,6 +295,6 @@ class Dashboard extends Component
             'group' => $group,
             'canCreate' => $canCreate,
             'canAdmin' => $canAdmin,
-        ])->layout('layouts.adminlte', ['title' => $group ? "Dashboard: {$group->name}" : 'Dashboard']);
+        ])->layout('layouts.adminlte', ['title' => "Dashboard: {$group->name}"]);
     }
 }

@@ -10,7 +10,7 @@ use Livewire\Component;
 class TemplateEdit extends Component
 {
     public AgentTemplate $template;
-    public ?string $groupId = null;
+    public string $groupId = '';
 
     public string $name = '';
     public string $description = '';
@@ -25,24 +25,14 @@ class TemplateEdit extends Component
         $this->template = $template;
         $this->groupId = request()->query('group') ?: $template->group_id;
 
-        if ($this->groupId) {
-            $group = Group::find($this->groupId);
+        $group = Group::find($this->groupId);
 
-            if (!$group || !Gate::allows('member-group', $group)) {
-                abort(403);
-            }
+        if (!$group || !Gate::allows('member-group', $group)) {
+            abort(403);
         }
 
         if (! Gate::allows('update-template', $template)) {
             abort(403);
-        }
-
-        if ($this->groupId) {
-            $group = Group::find($this->groupId);
-
-            if (!$group || !Gate::allows('member-group', $group)) {
-                abort(403);
-            }
         }
 
         $this->name = $template->name;
@@ -71,7 +61,6 @@ class TemplateEdit extends Component
         ]);
 
         $this->template->update([
-            'group_id' => $this->groupId ?: $this->template->group_id,
             'name' => $validated['name'],
             'description' => $validated['description'] ?: null,
             'system_prompt' => $validated['systemPrompt'],
@@ -82,10 +71,7 @@ class TemplateEdit extends Component
         ]);
 
         session()->flash('message', 'Template updated successfully.');
-
-        $this->redirect($this->groupId
-            ? route('groups.show', ['group' => $this->groupId, 'tab' => 'templates'])
-            : route('agent-templates.index'));
+        $this->redirect('/groups/' . $this->groupId . '?tab=templates');
     }
 
     protected function safeJsonDecode(?string $json): ?array
@@ -101,12 +87,12 @@ class TemplateEdit extends Component
 
     public function render()
     {
-        $group = $this->groupId ? Group::find($this->groupId) : null;
+        $group = Group::find($this->groupId);
         $canAdmin = $this->template->canAdmin(auth()->user());
 
         return view('livewire.templates.edit', [
             'group' => $group,
             'canAdmin' => $canAdmin,
-        ])->layout('layouts.adminlte', ['title' => $group ? "Edit Template: {$group->name}" : 'Edit Template']);
+        ])->layout('layouts.adminlte', ['title' => "Edit Template: {$group->name}"]);
     }
 }

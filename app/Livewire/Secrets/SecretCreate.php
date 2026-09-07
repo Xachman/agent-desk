@@ -10,7 +10,7 @@ use Livewire\Component;
 
 class SecretCreate extends Component
 {
-    public ?string $groupId = null;
+    public string $groupId = '';
 
     public string $name = '';
     public string $kubernetesSecretName = '';
@@ -23,19 +23,31 @@ class SecretCreate extends Component
 
     public function mount(): void
     {
-        $this->groupId = request()->query('group');
+        $requestedGroupId = request()->query('group');
+        $this->groupId = $this->resolveGroupId($requestedGroupId);
 
-        if ($this->groupId) {
-            $group = Group::find($this->groupId);
+        $this->agents = Agent::where('group_id', $this->groupId)->orderBy('name')->get(['id', 'name'])->toArray();
+    }
 
-            if (!$group || !Gate::allows('admin-group', $group)) {
-                abort(403);
+    protected function resolveGroupId(?string $requested): string
+    {
+        if ($requested) {
+            $group = Group::find($requested);
+
+            if ($group && Gate::allows('admin-group', $group)) {
+                return $group->id;
             }
 
-            $this->agents = Agent::where('group_id', $this->groupId)->orderBy('name')->get(['id', 'name'])->toArray();
-        } else {
-            $this->agents = Agent::whereNull('group_id')->where('user_id', auth()->id())->orderBy('name')->get(['id', 'name'])->toArray();
+            abort(403);
         }
+
+        $personalGroup = auth()->user()->personalGroup;
+
+        if (! $personalGroup) {
+            abort(403, 'No personal group found.');
+        }
+
+        return $personalGroup->id;
     }
 
     public function updatedName(string $value): void
@@ -55,16 +67,8 @@ class SecretCreate extends Component
             'agentId' => 'nullable|uuid|exists:agents,id',
         ]);
 
-        if ($this->groupId) {
-            $group = Group::find($this->groupId);
-
-            if (!$group || !Gate::allows('admin-group', $group)) {
-                abort(403);
-            }
-
-            if ($this->agentId) {
-                $agent = Agent::where('group_id', $this->groupId)->findOrFail($this->agentId);
-            }
+        if ($this->agentId) {
+            Agent::where('group_id', $this->groupId)->findOrFail($this->agentId);
         }
 
         AgentSecret::create([
@@ -79,20 +83,15 @@ class SecretCreate extends Component
         ]);
 
         session()->flash('message', 'Secret created successfully.');
-
-        if ($this->groupId) {
-            $this->redirect('/groups/' . $this->groupId . '?tab=secrets');
-        } else {
-            $this->redirect('/secrets');
-        }
+        $this->redirect('/groups/' . $this->groupId . '?tab=secrets');
     }
 
     public function render()
     {
-        $group = $this->groupId ? Group::find($this->groupId) : null;
+        $group = Group::find($this->groupId);
 
         return view('livewire.secrets.create', [
             'group' => $group,
-        ])->layout('layouts.adminlte', ['title' => $group ? "Create Secret: {$group->name}" : 'Create Secret']);
+        ])->layout('layouts.adminlte', ['title' => "Create Secret: {$group->name}"]);
     }
 }

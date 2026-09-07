@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Agent;
+use App\Models\Group;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -19,8 +20,11 @@ class AgentFactory extends Factory
      */
     public function definition(): array
     {
+        $user = User::factory()->create();
+
         return [
-            'user_id' => User::factory(),
+            'user_id' => $user->id,
+            'group_id' => $user->personalGroup?->id ?? Group::factory()->create(['owner_id' => $user->id])->id,
             'template_id' => null,
             'name' => fake()->words(3, true),
             'description' => fake()->paragraph(),

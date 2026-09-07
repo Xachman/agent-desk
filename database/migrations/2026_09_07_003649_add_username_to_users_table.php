@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('agent_deployments', function (Blueprint $table) {
-            $table->foreignUuid('group_id')->constrained('groups')->cascadeOnDelete()->after('user_id');
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('username')->unique()->nullable()->after('name');
         });
     }
 
@@ -21,9 +21,9 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('agent_deployments', function (Blueprint $table) {
-            $table->dropForeign(['group_id']);
-            $table->dropColumn('group_id');
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropUnique(['username']);
+            $table->dropColumn('username');
         });
     }
 };

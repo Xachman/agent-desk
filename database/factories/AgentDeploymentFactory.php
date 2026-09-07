@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\AgentDeployment;
+use App\Models\Group;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -16,9 +17,11 @@ class AgentDeploymentFactory extends Factory
     public function definition(): array
     {
         $name = fake()->unique()->words(2, true);
+        $user = User::factory()->create();
 
         return [
-            'user_id' => User::factory(),
+            'user_id' => $user->id,
+            'group_id' => $user->personalGroup?->id ?? Group::factory()->create(['owner_id' => $user->id])->id,
             'name' => ucfirst($name),
             'slug' => str($name)->slug(),
             'description' => fake()->sentence(),

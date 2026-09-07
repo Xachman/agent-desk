@@ -13,27 +13,40 @@ class TemplateIndex extends Component
     use WithPagination;
 
     public string $search = '';
-    public ?string $groupId = null;
+    public string $groupId = '';
 
     protected $queryString = ['search', 'groupId'];
 
     public function mount(): void
     {
-        $this->groupId = request()->query('group');
+        $requestedGroupId = request()->query('group');
+        $this->groupId = $this->resolveGroupId($requestedGroupId);
+    }
 
-        if ($this->groupId) {
-            $group = Group::find($this->groupId);
+    protected function resolveGroupId(?string $requested): string
+    {
+        if ($requested) {
+            $group = Group::find($requested);
 
-            if (!$group || !Gate::allows('member-group', $group)) {
-                $this->groupId = null;
-                abort(403);
+            if ($group && Gate::allows('member-group', $group)) {
+                return $group->id;
             }
+
+            abort(403);
         }
+
+        $personalGroup = auth()->user()->personalGroup;
+
+        if (! $personalGroup) {
+            abort(403, 'No personal group found.');
+        }
+
+        return $personalGroup->id;
     }
 
     public function delete(string $id): void
     {
-        $template = AgentTemplate::findOrFail($id);
+        $template = AgentTemplate::where('group_id', $this->groupId)->findOrFail($id);
 
         if (! Gate::allows('delete-template', $template)) {
             abort(403);
@@ -55,24 +68,16 @@ class TemplateIndex extends Component
                         ->orWhere('description', 'like', '%' . $this->search . '%');
                 });
             })
-            ->when($this->groupId, function ($query) {
-                $query->where('group_id', $this->groupId);
-            }, function ($query) use ($userId) {
-                $query->where(function ($q) use ($userId) {
-                    $q->whereNull('group_id');
-                })->orWhereHas('group.users', function ($q) use ($userId) {
-                    $q->where('users.id', $userId);
-                });
-            })
+            ->where('group_id', $this->groupId)
             ->orderBy('created_at', 'desc');
 
-        $group = $this->groupId ? Group::find($this->groupId) : null;
-        $canCreate = $group ? Gate::allows('admin-group', $group) : true;
+        $group = Group::find($this->groupId);
+        $canCreate = Gate::allows('admin-group', $group);
 
         return view('livewire.templates.index', [
             'templates' => $query->paginate(10),
             'group' => $group,
             'canCreate' => $canCreate,
-        ])->layout('layouts.adminlte', ['title' => $group ? "Templates: {$group->name}" : 'Templates']);
+        ])->layout('layouts.adminlte', ['title' => "Templates: {$group->name}"]);
     }
 }

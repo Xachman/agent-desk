@@ -3,11 +3,12 @@
 namespace Database\Factories;
 
 use App\Models\Group;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 /**
- * @extends Factory<Group>
+ * @extends Factory\u003cGroup\u003e
  */
 class GroupFactory extends Factory
 {
@@ -18,6 +19,7 @@ class GroupFactory extends Factory
         $name = fake()->company();
 
         return [
+            'owner_id' => User::factory(),
             'name' => $name,
             'slug' => Str::slug($name . '-' . fake()->unique()->numberBetween(1, 10000)),
             'description' => fake()->sentence(),

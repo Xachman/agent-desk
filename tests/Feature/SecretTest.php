@@ -21,7 +21,7 @@ class SecretTest extends TestCase
         $this->actingAs($user)
             ->get('/secrets')
             ->assertStatus(200)
-            ->assertSee('Kubernetes Secrets');
+            ->assertSee($user->personalGroup->name . ' Secrets');
     }
 
     #[Test]
@@ -37,7 +37,7 @@ class SecretTest extends TestCase
             ->set('value', 'sk-test123')
             ->set('isActive', true)
             ->call('store')
-            ->assertRedirect('/secrets');
+            ->assertRedirect('/groups/' . $user->personalGroup->id . '?tab=secrets');
 
         $this->assertDatabaseHas('agent_secrets', [
             'name' => 'OpenAI Key',
@@ -45,6 +45,7 @@ class SecretTest extends TestCase
             'key' => 'OPENAI_API_KEY',
             'value' => 'sk-test123',
             'user_id' => $user->id,
+            'group_id' => $user->personalGroup->id,
         ]);
     }
 
@@ -52,14 +53,14 @@ class SecretTest extends TestCase
     public function authenticated_user_can_edit_secret(): void
     {
         $user = User::factory()->create();
-        $secret = AgentSecret::factory()->create(['user_id' => $user->id]);
+        $secret = AgentSecret::factory()->create(['user_id' => $user->id, 'group_id' => $user->personalGroup->id]);
         $this->actingAs($user);
 
         \Livewire\Livewire::test(\App\Livewire\Secrets\SecretEdit::class, ['secret' => $secret])
             ->set('name', 'Updated Secret')
             ->set('value', 'new-value')
             ->call('update')
-            ->assertRedirect('/secrets');
+            ->assertRedirect('/groups/' . $user->personalGroup->id . '?tab=secrets');
 
         $this->assertDatabaseHas('agent_secrets', [
             'id' => $secret->id,

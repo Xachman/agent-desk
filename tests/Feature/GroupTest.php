@@ -67,11 +67,11 @@ class GroupTest extends TestCase
     #[Test]
     public function member_cannot_create_agent_in_group(): void
     {
-        $owner = User::factory()->create();
-        $member = User::factory()->create();
+        $owner = User::factory()->create(['role' => 'user']);
+        $member = User::factory()->create(['role' => 'user']);
         $group = Group::factory()->create(['owner_id' => $owner->id]);
         $group->addMember($member, 'member');
-        $template = AgentTemplate::factory()->create(['user_id' => $owner->id]);
+        $template = AgentTemplate::factory()->create(['user_id' => $owner->id, 'group_id' => $group->id]);
 
         $this->actingAs($member);
 
@@ -88,11 +88,11 @@ class GroupTest extends TestCase
     #[Test]
     public function admin_can_create_agent_in_group(): void
     {
-        $owner = User::factory()->create();
-        $admin = User::factory()->create();
+        $owner = User::factory()->create(['role' => 'user']);
+        $admin = User::factory()->create(['role' => 'user']);
         $group = Group::factory()->create(['owner_id' => $owner->id]);
         $group->addMember($admin, 'admin');
-        $template = AgentTemplate::factory()->create(['user_id' => $owner->id]);
+        $template = AgentTemplate::factory()->create(['user_id' => $owner->id, 'group_id' => $group->id]);
 
         $this->actingAs($admin);
 
@@ -115,8 +115,8 @@ class GroupTest extends TestCase
     #[Test]
     public function member_can_view_group_agents_but_not_delete(): void
     {
-        $owner = User::factory()->create();
-        $member = User::factory()->create();
+        $owner = User::factory()->create(['role' => 'user']);
+        $member = User::factory()->create(['role' => 'user']);
         $group = Group::factory()->create(['owner_id' => $owner->id]);
         $group->addMember($member, 'member');
         $agent = Agent::factory()->create([
