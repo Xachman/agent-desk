@@ -484,7 +484,7 @@ class AgentDeploymentService
                     'entryPoints' => ['web', 'websecure'],
                     'routes' => [
                         [
-                            'match' => "HostRegexp(`^[0-9]+-p-{$slug}.{preg_quote($domain)}$`)",
+                            'match' => "HostRegexp(`^[0-9]+-p-{$slug}." . preg_quote($domain, '`') . "$`)",
                             'kind' => 'Rule',
                             'priority' => 100,
                             'services' => [
@@ -672,6 +672,7 @@ MD;
     {
         $slug = $deployment->slug;
         $domain = $deployment->domain ?: "agent-services.example.com";
+        $escapedDomain = preg_quote($domain, '~');
 
         return <<<NGINX
 events {}
@@ -687,13 +688,13 @@ http {
 
   map \$host \$backend_port {
     default "";
-    ~^(?<port>[0-9]+)-p-{$slug}\.{preg_quote($domain)}$ \$port;
+    ~^(?<port>[0-9]+)-p-{$slug}\.{$escapedDomain}$ \$port;
   }
 
   server {
     listen 80;
 
-    server_name ~^[0-9]+-p-{$slug}\.{preg_quote($domain)}$;
+    server_name ~^[0-9]+-p-{$slug}\.{$escapedDomain}$;
 
     location /healthz {
       access_log off;
