@@ -33,6 +33,25 @@ return [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
+
+        'platform' => [
+            'config_token' => env('SLACK_PLATFORM_CONFIG_TOKEN'),
+            'refresh_token' => env('SLACK_PLATFORM_REFRESH_TOKEN'),
+            'team_id' => env('SLACK_PLATFORM_TEAM_ID'),
+            'user_id' => env('SLACK_PLATFORM_USER_ID'),
+            'config_token_expires_at' => env('SLACK_PLATFORM_CONFIG_TOKEN_EXPIRES_AT'),
+        ],
+
+        'oauth' => [
+            'redirect_url' => env('SLACK_OAUTH_REDIRECT_URL', config('app.url') . '/slack/oauth/callback'),
+            'agent_callback_url' => env('SLACK_AGENT_CALLBACK_URL', config('app.url') . '/slack/agent/callback'),
+        ],
+
+        'events' => [
+            'enabled' => env('SLACK_EVENTS_ENABLED', true),
+        ],
+
+        'scopes' => explode(',', env('SLACK_BOT_SCOPES', 'app_mentions:read,chat:write,im:read,im:write,users:read')),
     ],
 
 ];

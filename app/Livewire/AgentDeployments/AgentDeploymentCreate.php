@@ -51,6 +51,13 @@ class AgentDeploymentCreate extends Component
         $this->agents = Agent::whereIn('group_id', $groupIds)->orderBy('name')->get(['id', 'name'])->toArray();
     }
 
+    protected function guardAdmin(): void
+    {
+        if (!auth()->user()?->isAdmin()) {
+            abort(403, 'Only admins can create deployments.');
+        }
+    }
+
     public function updatedName(string $value): void
     {
         if (empty($this->slug) || $this->slug === Str::slug($this->name)) {
@@ -60,6 +67,8 @@ class AgentDeploymentCreate extends Component
 
     public function store(AgentDeploymentService $service): void
     {
+        $this->guardAdmin();
+
         $validated = $this->validate([
             'name' => 'required|string|max:255',
             'slug' => 'required|string|max:255|unique:agent_deployments,slug',
@@ -96,13 +105,13 @@ class AgentDeploymentCreate extends Component
 
     protected function buildDeployment(array $validated): AgentDeployment
     {
-        $groupId = $this->agent_id
-            ? Agent::find($this->agent_id)?->group_id
-            : auth()->user()->personalGroup?->id;
+        $agent = $this->agent_id ? Agent::find($this->agent_id) : null;
+        $groupId = $agent?->group_id ?? auth()->user()->personalGroup?->id;
+        $ownerId = $agent?->user_id ?? auth()->id();
 
         $deployment = new AgentDeployment();
         $deployment->forceFill([
-            'user_id' => auth()->id(),
+            'user_id' => $ownerId,
             'group_id' => $groupId,
             'agent_id' => $validated['agent_id'] ?? null,
             'name' => $validated['name'],

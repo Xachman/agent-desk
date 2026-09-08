@@ -17,6 +17,14 @@ class AgentDeploymentService
     }
 
     /**
+     * Get the underlying Kubernetes service.
+     */
+    public function kubernetes(): KubernetesService
+    {
+        return $this->kubernetes;
+    }
+
+    /**
      * Create a deployment record from an Agent model.
      */
     public function createDeploymentFromAgent(\App\Models\Agent $agent): AgentDeployment
@@ -133,6 +141,151 @@ class AgentDeploymentService
         ]);
 
         return $result;
+    }
+
+    /**
+     * Generate a one-shot Job manifest for a Slack event run.
+     */
+    public function jobManifest(
+        string $jobName,
+        string $image,
+        \App\Models\SlackWorkspace $workspace,
+        AgentDeployment $deployment,
+        array $command,
+        array $env,
+        string $dataPvcName,
+        string $filesystemDbPvcName,
+        int $timeout = 600,
+    ): array {
+        $deploymentSlug = $deployment->slug;
+        $workspaceSlug = $workspace->storage_slug;
+        $limits = $deployment->resource_limits ?: [];
+        $agentLimits = data_get($limits, 'agent.limits', ['memory' => '8000Mi', 'cpu' => '2000m']);
+        $agentRequests = data_get($limits, 'agent.requests', ['memory' => '500Mi', 'cpu' => '500m']);
+        $dindLimits = data_get($limits, 'dind.limits', ['memory' => '4000Mi', 'cpu' => '2000m']);
+        $dindRequests = data_get($limits, 'dind.requests', ['memory' => '1000Mi', 'cpu' => '500m']);
+
+        $secretName = "{$workspaceSlug}-secrets";
+
+        return [
+            'apiVersion' => 'batch/v1',
+            'kind' => 'Job',
+            'metadata' => [
+                'name' => $jobName,
+                'labels' => ['app' => 'agent-desk-slack', 'workspace' => $workspaceSlug],
+            ],
+            'spec' => [
+                'ttlSecondsAfterFinished' => config('kubernetes.job_ttl_seconds', 600),
+                'backoffLimit' => config('kubernetes.job_backoff_limit', 1),
+                'activeDeadlineSeconds' => $timeout,
+                'template' => [
+                    'spec' => [
+                        'restartPolicy' => 'Never',
+                        'securityContext' => [
+                            'fsGroup' => 10000,
+                            'supplementalGroups' => [10000],
+                        ],
+                        'initContainers' => [
+                            [
+                                'name' => 'setup-venv',
+                                'image' => 'nousresearch/hermes-agent:v2026.6.5',
+                                'command' => ['bash', '-c'],
+                                'args' => [
+                                    "apt update\napt install -y python3-venv\npython3 -m venv /opt/data/.venv\nchown -R 10000:10000 /opt/data/.venv\nsu - hermes -c 'export HOME=/opt/data && curl -fsSL https://opencode.ai/install | bash'",
+                                ],
+                                'volumeMounts' => $this->slackVolumeMounts($deploymentSlug, $workspaceSlug, $dataPvcName, $filesystemDbPvcName, false),
+                            ],
+                        ],
+                        'containers' => [
+                            [
+                                'name' => 'dind',
+                                'image' => 'docker:27-dind-rootless',
+                                'args' => ['--host=tcp://0.0.0.0:2375'],
+                                'securityContext' => [
+                                    'privileged' => true,
+                                    'runAsUser' => 1000,
+                                    'runAsGroup' => 1000,
+                                ],
+                                'env' => [
+                                    ['name' => 'DOCKER_TLS_CERTDIR', 'value' => ''],
+                                ],
+                                'volumeMounts' => [
+                                    ['name' => 'data-volume', 'mountPath' => '/opt/data'],
+                                    ['name' => 'docker-daemon-config', 'mountPath' => '/home/rootless/.config/docker/daemon.json', 'subPath' => 'daemon.json'],
+                                ],
+                                'resources' => [
+                                    'limits' => $dindLimits,
+                                    'requests' => $dindRequests,
+                                ],
+                            ],
+                            [
+                                'name' => 'agent',
+                                'image' => $image,
+                                'command' => $command,
+                                'imagePullPolicy' => 'Always',
+                                'env' => $env,
+                                'volumeMounts' => $this->slackVolumeMounts($deploymentSlug, $workspaceSlug, $dataPvcName, $filesystemDbPvcName, true),
+                                'resources' => [
+                                    'limits' => $agentLimits,
+                                    'requests' => $agentRequests,
+                                ],
+                            ],
+                        ],
+                        'volumes' => [
+                            ['name' => "{$deploymentSlug}-agent-config", 'configMap' => ['name' => "{$deploymentSlug}-agent-config"]],
+                            ['name' => "{$deploymentSlug}-agent-soul", 'configMap' => ['name' => "{$deploymentSlug}-agent-soul"]],
+                            ['name' => "{$deploymentSlug}-agent-markdown", 'configMap' => ['name' => "{$deploymentSlug}-agent-markdown"]],
+                            ['name' => 'data-volume', 'persistentVolumeClaim' => ['claimName' => $dataPvcName]],
+                            ['name' => 'filebrowser-db', 'persistentVolumeClaim' => ['claimName' => $filesystemDbPvcName]],
+                            ['name' => 'filebrowser-config', 'emptyDir' => []],
+                            ['name' => 'docker-daemon-config', 'configMap' => ['name' => "{$deploymentSlug}-agent-docker-daemon"]],
+                            ['name' => $secretName, 'secret' => ['secretName' => $secretName]],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Volume mounts for one-shot Slack agent jobs.
+     */
+    protected function slackVolumeMounts(string $deploymentSlug, string $workspaceSlug, string $dataPvcName, string $filesystemDbPvcName, bool $mountSecret): array
+    {
+        $mounts = [
+            [
+                'name' => "{$deploymentSlug}-agent-config",
+                'mountPath' => '/opt/data/config.yaml',
+                'subPath' => 'config.yaml',
+                'readOnly' => true,
+            ],
+            [
+                'name' => "{$deploymentSlug}-agent-soul",
+                'mountPath' => '/opt/data/SOUL.md',
+                'subPath' => 'SOUL.md',
+                'readOnly' => true,
+            ],
+            [
+                'name' => "{$deploymentSlug}-agent-markdown",
+                'mountPath' => '/opt/data/AGENTS.md',
+                'subPath' => 'AGENTS.md',
+                'readOnly' => true,
+            ],
+            [
+                'name' => 'data-volume',
+                'mountPath' => '/opt/data',
+            ],
+        ];
+
+        if ($mountSecret) {
+            $mounts[] = [
+                'name' => "{$workspaceSlug}-secrets",
+                'mountPath' => '/opt/data/secrets',
+                'readOnly' => true,
+            ];
+        }
+
+        return $mounts;
     }
 
     /**

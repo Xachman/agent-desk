@@ -105,6 +105,13 @@
                     @if($deployment->agent)
                         <dt class="font-medium text-gray-700">Linked Agent</dt>
                         <dd class="text-gray-600">{{ $deployment->agent->name }}</dd>
+
+                        <dt class="font-medium text-gray-700 pt-3">Slack</dt>
+                        <dd class="text-gray-600">
+                            <a href="{{ route('slack.settings', $deployment->agent->id) }}" class="text-blue-600 hover:underline">
+                                <i class="fab fa-slack mr-1"></i>Configure Slack integration
+                            </a>
+                        </dd>
                     @endif
                 </dl>
             </div>

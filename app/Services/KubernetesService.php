@@ -152,6 +152,21 @@ class KubernetesService
     }
 
     /**
+     * Get status of a Job.
+     */
+    public function getJobStatus(string $name): ?array
+    {
+        try {
+            $result = $this->kubectl(['get', 'job', $name, '-o', 'json']);
+            $data = json_decode($result['output'], true);
+
+            return $data ?? null;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /**
      * Get pod status for pods matching a label selector.
      */
     public function getPods(string $selector): array

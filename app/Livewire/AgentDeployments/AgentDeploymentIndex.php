@@ -29,9 +29,21 @@ class AgentDeploymentIndex extends Component
         }
     }
 
-    public function delete(string $id, AgentDeploymentService $service): void
+    protected function getDeployment(string $id): AgentDeployment
     {
         $deployment = AgentDeployment::findOrFail($id);
+        $user = auth()->user();
+
+        if (!$deployment->canAdmin($user)) {
+            abort(403, 'You do not have permission to manage this deployment.');
+        }
+
+        return $deployment;
+    }
+
+    public function delete(string $id, AgentDeploymentService $service): void
+    {
+        $deployment = $this->getDeployment($id);
 
         try {
             $service->destroy($deployment);
@@ -47,7 +59,7 @@ class AgentDeploymentIndex extends Component
 
     public function scale(string $id, int $replicas, AgentDeploymentService $service): void
     {
-        $deployment = AgentDeployment::findOrFail($id);
+        $deployment = $this->getDeployment($id);
 
         try {
             $service->scale($deployment, max(0, $replicas));
@@ -59,7 +71,7 @@ class AgentDeploymentIndex extends Component
 
     public function deploy(string $id, AgentDeploymentService $service): void
     {
-        $deployment = AgentDeployment::findOrFail($id);
+        $deployment = $this->getDeployment($id);
 
         try {
             $service->deploy($deployment);
@@ -71,7 +83,7 @@ class AgentDeploymentIndex extends Component
 
     public function destroy(string $id, AgentDeploymentService $service): void
     {
-        $deployment = AgentDeployment::findOrFail($id);
+        $deployment = $this->getDeployment($id);
 
         try {
             $service->destroy($deployment);
@@ -83,7 +95,7 @@ class AgentDeploymentIndex extends Component
 
     public function refreshStatus(string $id, AgentDeploymentService $service): void
     {
-        $deployment = AgentDeployment::findOrFail($id);
+        $deployment = $this->getDeployment($id);
 
         try {
             $service->refreshStatus($deployment);
@@ -95,8 +107,20 @@ class AgentDeploymentIndex extends Component
 
     public function render()
     {
+        $user = auth()->user();
+
         $query = AgentDeployment::query()
             ->with('user', 'agent')
+            ->when(!$user->isAdmin(), function ($query) use ($user) {
+                $query->where(function ($q) use ($user) {
+                    $q->where('user_id', $user->id)
+                        ->orWhereHas('group', function ($gq) use ($user) {
+                            $gq->whereHas('users', function ($uq) use ($user) {
+                                $uq->where('user_id', $user->id);
+                            });
+                        });
+                });
+            })
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('name', 'like', '%' . $this->search . '%')

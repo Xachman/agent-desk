@@ -45,16 +45,16 @@
                     <i class="fas fa-users w-5"></i>
                     <span>Groups</span>
                 </a>
+                <a href="{{ route('agent-deployments.index') }}" class="flex items-center px-6 py-3 hover:bg-slate-700 {{ request()->routeIs('agent-deployments.*') ? 'bg-slate-700 border-l-4 border-blue-500' : '' }}">
+                    <i class="fas fa-server w-5"></i>
+                    <span>Deployments</span>
+                </a>
 
                 @if(auth()->user()->role === 'admin')
                     <div class="px-4 mt-6 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Administration</div>
                     <a href="{{ route('admin') }}" class="flex items-center px-6 py-3 hover:bg-slate-700 {{ request()->routeIs('admin') ? 'bg-slate-700 border-l-4 border-blue-500' : '' }}">
                         <i class="fas fa-user-shield w-5"></i>
                         <span>Admin Panel</span>
-                    </a>
-                    <a href="{{ route('agent-deployments.index') }}" class="flex items-center px-6 py-3 hover:bg-slate-700 {{ request()->routeIs('agent-deployments.*') ? 'bg-slate-700 border-l-4 border-blue-500' : '' }}">
-                        <i class="fas fa-server w-5"></i>
-                        <span>Deployments</span>
                     </a>
                 @endif
             </nav>

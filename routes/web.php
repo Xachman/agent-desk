@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\Slack\SlackAgentCallbackController;
+use App\Http\Controllers\Slack\SlackEventController;
+use App\Http\Controllers\Slack\SlackOAuthController;
+use App\Livewire\Slack\AgentSlackSettings;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome');
@@ -30,11 +34,22 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/secrets/{secret}/edit', \App\Livewire\Secrets\SecretEdit::class)->name('secrets.edit');
 });
 
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/agent-deployments', \App\Livewire\AgentDeployments\AgentDeploymentIndex::class)->name('agent-deployments.index');
+    Route::get('/agent-deployments/{deployment}', \App\Livewire\AgentDeployments\AgentDeploymentShow::class)->name('agent-deployments.show');
+
+    Route::get('/agents/{agent}/slack', AgentSlackSettings::class)->name('slack.settings');
+});
+
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::view('/admin', 'livewire.admin')->name('admin');
 
-    Route::get('/agent-deployments', \App\Livewire\AgentDeployments\AgentDeploymentIndex::class)->name('agent-deployments.index');
     Route::get('/agent-deployments/create', \App\Livewire\AgentDeployments\AgentDeploymentCreate::class)->name('agent-deployments.create');
-    Route::get('/agent-deployments/{deployment}', \App\Livewire\AgentDeployments\AgentDeploymentShow::class)->name('agent-deployments.show');
     Route::get('/agent-deployments/{deployment}/edit', \App\Livewire\AgentDeployments\AgentDeploymentEdit::class)->name('agent-deployments.edit');
 });
+
+Route::post('/slack/oauth/callback', [SlackOAuthController::class, 'callback'])->name('slack.oauth.callback');
+Route::post('/slack/events/{workspace}', [SlackEventController::class, 'receive'])->name('slack.events');
+Route::post('/slack/agent/callback', [SlackAgentCallbackController::class, 'receive'])->name('slack.agent.callback');

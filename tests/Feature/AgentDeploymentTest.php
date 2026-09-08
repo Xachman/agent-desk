@@ -24,13 +24,30 @@ class AgentDeploymentTest extends TestCase
     }
 
     #[Test]
-    public function non_admin_is_redirected_from_deployments_index(): void
+    public function non_admin_can_view_own_deployments_index(): void
     {
         $user = User::factory()->create(['role' => 'user']);
+        AgentDeployment::factory()->create(['user_id' => $user->id]);
 
         $this->actingAs($user)
             ->get('/agent-deployments')
-            ->assertRedirect('/login');
+            ->assertStatus(200);
+    }
+
+    #[Test]
+    public function non_admin_cannot_store_deployments(): void
+    {
+        $user = User::factory()->create(['role' => 'user']);
+        $this->actingAs($user);
+
+        \Livewire\Livewire::test(\App\Livewire\AgentDeployments\AgentDeploymentCreate::class)
+            ->set('name', 'Tester')
+            ->set('slug', 'tester')
+            ->set('image', 'nousresearch/hermes-agent:v2026.4.30')
+            ->set('namespace', 'agent-desk')
+            ->set('domain', 'agent-services.example.com')
+            ->call('store')
+            ->assertStatus(403);
     }
 
     #[Test]

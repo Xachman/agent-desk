@@ -8,6 +8,13 @@ use App\Services\NanobotService;
 use App\Services\AgentFileService;
 use App\Services\AgentTemplateService;
 use App\Services\NotificationService;
+use App\Services\SlackApiService;
+use App\Services\SlackAppProvisioningService;
+use App\Services\SlackConfigTokenService;
+use App\Services\SlackIconService;
+use App\Services\SlackKubernetesRunnerService;
+use App\Services\SlackSignatureVerifier;
+use App\Services\SlackWorkspaceSecretService;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -20,6 +27,14 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AgentTemplateService::class);
         $this->app->singleton(NotificationService::class);
         $this->app->singleton(AgentOrchestrator::class);
+
+        $this->app->singleton(SlackConfigTokenService::class);
+        $this->app->singleton(SlackIconService::class);
+        $this->app->singleton(SlackSignatureVerifier::class);
+        $this->app->singleton(SlackApiService::class);
+        $this->app->singleton(SlackAppProvisioningService::class);
+        $this->app->singleton(SlackWorkspaceSecretService::class);
+        $this->app->singleton(SlackKubernetesRunnerService::class);
     }
 
     public function boot(): void

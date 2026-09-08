@@ -18,6 +18,8 @@ class AgentDeploymentShow extends Component
     public function mount(AgentDeployment $deployment, AgentDeploymentService $service): void
     {
         $this->deployment = $deployment;
+        $this->guard();
+
         $manifest = $service->generateManifest($deployment);
         $this->yaml = $service->toYaml($manifest);
 
@@ -25,8 +27,28 @@ class AgentDeploymentShow extends Component
         $this->loadSecrets();
     }
 
+    protected function guard(): void
+    {
+        $user = auth()->user();
+
+        if (!$user || !$this->deployment->canInteract($user)) {
+            abort(403, 'You do not have permission to view this deployment.');
+        }
+    }
+
+    protected function guardAdmin(): void
+    {
+        $user = auth()->user();
+
+        if (!$user || !$this->deployment->canAdmin($user)) {
+            abort(403, 'You do not have permission to manage this deployment.');
+        }
+    }
+
     public function scale(int $replicas, AgentDeploymentService $service): void
     {
+        $this->guardAdmin();
+
         try {
             $service->scale($this->deployment, max(0, $replicas));
             $this->deployment->refresh();
@@ -39,6 +61,8 @@ class AgentDeploymentShow extends Component
 
     public function deploy(AgentDeploymentService $service): void
     {
+        $this->guardAdmin();
+
         try {
             $service->deploy($this->deployment);
             $this->deployment->refresh();
@@ -51,6 +75,8 @@ class AgentDeploymentShow extends Component
 
     public function destroy(AgentDeploymentService $service): void
     {
+        $this->guardAdmin();
+
         try {
             $service->destroy($this->deployment);
             $this->deployment->refresh();
@@ -63,6 +89,8 @@ class AgentDeploymentShow extends Component
 
     public function refreshStatus(AgentDeploymentService $service): void
     {
+        $this->guard();
+
         try {
             $this->deployment = $service->refreshStatus($this->deployment);
             $this->loadClusterStatus($service);
@@ -74,8 +102,8 @@ class AgentDeploymentShow extends Component
 
     protected function loadClusterStatus(AgentDeploymentService $service): void
     {
-        $this->clusterStatus = $service->kubernetes->getDeploymentStatus("{$this->deployment->slug}-agent");
-        $this->podStatuses = $service->kubernetes->getPods("app=agent");
+        $this->clusterStatus = $service->kubernetes()->getDeploymentStatus("{$this->deployment->slug}-agent");
+        $this->podStatuses = $service->kubernetes()->getPods("app=agent");
     }
 
     protected function loadSecrets(): void

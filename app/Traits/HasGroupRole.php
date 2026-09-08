@@ -13,14 +13,14 @@ trait HasGroupRole
     public function canAdmin(User $user): bool
     {
         if ($this->group_id === null) {
-            return $this->user_id === $user->id || $user->isAdmin();
+            return $this->user_id == $user->id || $user->isAdmin();
         }
 
         if (!$this->group) {
             return $user->isAdmin();
         }
 
-        return $this->group->owner_id === $user->id
+        return $this->group->owner_id == $user->id
             || $this->group->memberRole($user) === 'admin'
             || $user->isAdmin();
     }
@@ -31,7 +31,7 @@ trait HasGroupRole
     public function canInteract(User $user): bool
     {
         if ($this->group_id === null) {
-            return $this->user_id === $user->id || $user->isAdmin();
+            return $this->user_id == $user->id || $user->isAdmin();
         }
 
         if (!$this->group) {
@@ -40,7 +40,7 @@ trait HasGroupRole
 
         $role = $this->group->memberRole($user);
 
-        return $this->group->owner_id === $user->id
+        return $this->group->owner_id == $user->id
             || in_array($role, ['admin', 'member'], true)
             || $user->isAdmin();
     }
