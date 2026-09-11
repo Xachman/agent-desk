@@ -15,6 +15,8 @@ use App\Services\SlackIconService;
 use App\Services\SlackKubernetesRunnerService;
 use App\Services\SlackSignatureVerifier;
 use App\Services\SlackWorkspaceSecretService;
+use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -39,6 +41,15 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        //
+        $this->enforceHttps();
+    }
+
+    private function enforceHttps(): void
+    {
+        $protocol = Request::header('X-Forwarded-Proto');
+
+        if (Request::secure() || (is_string($protocol) && strtolower($protocol) === 'https')) {
+            URL::forceScheme('https');
+        }
     }
 }
