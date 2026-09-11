@@ -51,5 +51,3 @@ Route::middleware(['auth', 'admin'])->group(function () {
 });
 
 Route::post('/slack/oauth/callback', [SlackOAuthController::class, 'callback'])->name('slack.oauth.callback');
-Route::post('/slack/events/{workspace}', [SlackEventController::class, 'receive'])->name('slack.events');
-Route::post('/slack/agent/callback', [SlackAgentCallbackController::class, 'receive'])->name('slack.agent.callback');

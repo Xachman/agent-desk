@@ -38,6 +38,11 @@ class SlackAppProvisioningService
         $workspace->manifest_json = $manifest;
         $workspace->save();
 
+        // Validate the manifest before sending it to Slack so we get detailed errors.
+        $this->configTokenService->apiPost('apps.manifest.validate', [
+            'manifest' => json_encode($manifest),
+        ]);
+
         $response = $this->configTokenService->apiPost('apps.manifest.create', [
             'manifest' => json_encode($manifest),
         ]);
@@ -191,13 +196,6 @@ class SlackAppProvisioningService
                 'bot_user' => [
                     'display_name' => $this->truncate($name, 80),
                     'always_online' => false,
-                ],
-                'events' => [
-                    'request_url' => $eventsUrl,
-                    'bot_events' => [
-                        'app_mention',
-                        'message.im',
-                    ],
                 ],
             ],
             'oauth_config' => [

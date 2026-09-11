@@ -93,7 +93,11 @@ class SlackConfigTokenService
         }
 
         if (!($data['ok'] ?? false)) {
-            throw new Exception("Slack API {$method} failed: " . ($data['error'] ?? 'unknown'));
+            $error = $data['error'] ?? 'unknown';
+            $details = $data['errors'] ?? [];
+            $detailsJson = $details ? ' ' . json_encode($details) : '';
+
+            throw new Exception("Slack API {$method} failed: {$error}{$detailsJson}");
         }
 
         return $data;

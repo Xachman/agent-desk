@@ -3,8 +3,13 @@
 use App\Http\Controllers\AgentController;
 use App\Http\Controllers\AgentTemplateController;
 use App\Http\Controllers\ExecutionController;
+use App\Http\Controllers\Slack\SlackAgentCallbackController;
+use App\Http\Controllers\Slack\SlackEventController;
 use App\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Route;
+
+Route::post('slack/events/{workspace}', [SlackEventController::class, 'receive'])->name('slack.events');
+Route::post('slack/agent/callback', [SlackAgentCallbackController::class, 'receive'])->name('slack.agent.callback');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('agents', AgentController::class);

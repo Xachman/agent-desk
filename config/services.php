@@ -51,7 +51,7 @@ return [
             'enabled' => env('SLACK_EVENTS_ENABLED', true),
         ],
 
-        'scopes' => explode(',', env('SLACK_BOT_SCOPES', 'app_mentions:read,chat:write,im:read,im:write,users:read')),
+        'scopes' => explode(',', env('SLACK_BOT_SCOPES', 'app_mentions:read,chat:write,im:history,im:read,im:write,users:read')),
     ],
 
 ];
