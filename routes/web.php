@@ -6,7 +6,9 @@ use App\Http\Controllers\Slack\SlackOAuthController;
 use App\Livewire\Slack\AgentSlackSettings;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'welcome');
+Route::get('/', function () {
+    return redirect()->route('dashboard');
+});
 
 // Livewire routes
 Route::get('/login', \App\Livewire\Login::class)->name('login');
