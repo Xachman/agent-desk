@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\AgentDeploymentService;
 use App\Traits\HasGroupRole;
 use Database\Factories\AgentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Log;
 
 #[Fillable([
     'user_id', 'group_id', 'template_id', 'name', 'description',
@@ -58,5 +60,33 @@ class Agent extends BaseModel
     public function deployment(): HasOne
     {
         return $this->hasOne(AgentDeployment::class);
+    }
+
+    /**
+     * Clean up associated Kubernetes resources before the agent is removed.
+     */
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::deleting(function (Agent $agent) {
+            $deployment = $agent->deployment;
+
+            if (! $deployment) {
+                return;
+            }
+
+            try {
+                app(AgentDeploymentService::class)->destroy($deployment);
+            } catch (\Exception $e) {
+                Log::warning('Failed to remove agent deployment from Kubernetes during agent deletion', [
+                    'agent_id' => $agent->id,
+                    'deployment_id' => $deployment->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            $deployment->delete();
+        });
     }
 }
