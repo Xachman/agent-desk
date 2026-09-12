@@ -98,6 +98,12 @@
                         <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                             <i class="fas fa-user text-blue-600"></i>
                         </div>
+                        <form method="POST" action="{{ route('logout') }}" class="ml-2">
+                            @csrf
+                            <button type="submit" class="text-gray-500 hover:text-red-600 focus:outline-none" title="Logout">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </button>
+                        </form>
                     </div>
                 </div>
             </header>
